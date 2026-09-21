@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vendor Dashboard — Smart MetaMarket</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+      .auth-container {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .auth-box {
+        width: 100%;
+        max-width: 400px;
+      }
+
+      .auth-box h2 {
+        margin-bottom: 6px;
+      }
+
+      .auth-box p {
+        margin-bottom: 24px;
+      }
+
+      .form-group {
+        margin-bottom: 16px;
+      }
+
+      .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--subtext);
+        margin-bottom: 6px;
+      }
+
+      .auth-switch {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 0.9rem;
+        color: var(--subtext);
+      }
+
+      .auth-switch span {
+        color: var(--primary);
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      /* Dashboard */
+      .dashboard-header {
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+      }
+
+      .dashboard-header h3 {
+        font-size: 1rem;
+      }
+
+      .dashboard-nav {
+        display: flex;
+        overflow-x: auto;
+        gap: 8px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--card);
+        position: fixed;
+        top: 57px;
+        left: 0;
+        right: 0;
+        z-index: 999;
+      }
+
+      .dashboard-nav::-webkit-scrollbar {
+        display: none;
+      }
+
+      .dash-tab {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: none;
+        color: var(--subtext);
+        transition: all 0.3s;
+      }
+
+      .dash-tab.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+      }
+
+      .dashboard-content {
+        padding-top: 120px;
+        padding-bottom: 30px;
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .stat-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        text-align: center;
+      }
+
+      .stat-card .stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--primary);
+      }
+
+      .stat-card .stat-label {
+        font-size: 0.8rem;
+        color: var(--subtext);
+        margin-top: 4px;
+      }
+
+      .subscription-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .subscription-card h3 {
+        margin-bottom: 12px;
+      }
+
+      .sub-status {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .plan-buttons {
+        display: flex;
+        gap: 10px;
+      }
+
+      .item-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 12px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .item-card img {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 8px;
+        background: var(--border);
+        flex-shrink: 0;
+      }
+
+      .item-card-body {
+        flex: 1;
+      }
+
+      .item-card-body h4 {
+        font-size: 0.9rem;
+        margin-bottom: 2px;
+      }
+
+      .item-card-body p {
+        font-size: 0.8rem;
+      }
+
+      .item-card-actions {
+        display: flex;
+        gap: 6px;
+      }
+
+      .btn-sm {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+        border-radius: 6px;
+      }
+
+      .btn-danger {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+
+      .btn-edit {
+        background: var(--border);
+        color: var(--text);
+        border: none;
+        cursor: pointer;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 2000;
+        overflow-y: auto;
+        padding: 20px;
+      }
+
+      .modal.open {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+      }
+
+      .modal-box {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        width: 100%;
+        max-width: 480px;
+        margin-top: 40px;
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .modal-close {
+        background: none;
+        border: none;
+        color: var(--subtext);
+        font-size: 1.5rem;
+        cursor: pointer;
+      }
+
+      select.input {
+        appearance: none;
+      }
+
+      .portfolio-thumb-wrap {
+        position: relative;
+      }
+
+      .portfolio-remove-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        border: none;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        line-height: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Auth Section (shown when not logged in) -->
+    <div id="auth-section">
+      <div class="auth-container">
+        <div class="auth-box">
+          <!-- Login Form -->
+          <div id="login-form">
+            <div
+              class="navbar-logo"
+              style="font-size: 1.5rem; margin-bottom: 24px"
+            >
+              Smart<span style="color: var(--text)">Meta</span>Market
+            </div>
+            <h2>Vendor Login</h2>
+            <p>Access your vendor dashboard</p>
+
+            <div class="form-group">
+              <label>Email</label>
+              <input
+                class="input"
+                type="email"
+                id="login-email"
+                placeholder="your@email.com"
+              />
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input
+                class="input"
+                type="password"
+                id="login-password"
+                placeholder="••••••••"
+              />
+            </div>
+            <button class="btn btn-primary w-full" onclick="handleLogin()">
+              Login
+            </button>
+
+            <div class="auth-switch">
+              Don't have an account?
+              <span onclick="showRegister()">Register as Vendor</span>
+            </div>
+          </div>
+
+          <!-- Register Form -->
+          <div id="register-form" style="display: none">
+            <div
+              class="navbar-logo"
+              style="font-size: 1.5rem; margin-bottom: 24px"
+            >
+              Smart<span style="color: var(--text)">Meta</span>Market
+            </div>
+            <h2>Become a Vendor</h2>
+            <p>Register to start selling on Smart MetaMarket</p>
+
+            <div class="form-group">
+              <label>Your Name</label>
+              <input
+                class="input"
+                type="text"
+                id="reg-name"
+                placeholder="John Doe"
+              />
+            </div>
+            <div class="form-group">
+              <label>Business Name</label>
+              <input
+                class="input"
+                type="text"
+                id="reg-business"
+                placeholder="Johns Furniture"
+              />
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input
+                class="input"
+                type="email"
+                id="reg-email"
+                placeholder="your@email.com"
+              />
+            </div>
+            <div class="form-group">
+              <label>Phone / WhatsApp</label>
+              <input
+                class="input"
+                type="tel"
+                id="reg-phone"
+                placeholder="08012345678"
+              />
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input
+                class="input"
+                type="password"
+                id="reg-password"
+                placeholder="••••••••"
+              />
+            </div>
+            <div class="form-group">
+              <label>Vendor Type</label>
+              <select class="input" id="reg-type">
+                <option value="product">
+                  Product Vendor — I sell physical items
+                </option>
+                <option value="service">
+                  Service Vendor — I offer skills/services
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>State</label>
+              <select
+                class="input"
+                id="reg-state"
+                onchange="handleStateChange('reg')"
+              >
+                <option value="">Select State</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Local Government Area (LGA)</label>
+              <select class="input" id="reg-lga" disabled>
+                <option value="">Select State First</option>
+              </select>
+            </div>
+            <button class="btn btn-primary w-full" onclick="handleRegister()">
+              Create Vendor Account
+            </button>
+
+            <div class="auth-switch">
+              Already have an account? <span onclick="showLogin()">Login</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard Section (shown when logged in) -->
+    <div id="dashboard-section" style="display: none">
+      <!-- Dashboard Header -->
+      <div class="dashboard-header">
+        <div>
+          <h3 id="dash-business-name">My Store</h3>
+          <p
+            style="font-size: 0.75rem; color: var(--subtext)"
+            id="dash-vendor-type"
+          ></p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center">
+          <a
+            id="view-storefront-btn"
+            href="#"
+            class="btn btn-outline"
+            style="padding: 6px 12px; font-size: 0.75rem"
+          >
+            View Store
+          </a>
+          <button class="btn btn-danger btn-sm" onclick="logout()">
+            Logout
+          </button>
+        </div>
+      </div>
+
+      <!-- Dashboard Nav Tabs -->
+      <div class="dashboard-nav">
+        <button
+          class="dash-tab active"
+          id="dtab-overview"
+          onclick="switchDashTab('overview')"
+        >
+          📊 Overview
+        </button>
+        <button
+          class="dash-tab"
+          id="dtab-products"
+          onclick="switchDashTab('products')"
+        >
+          🛍️ Products
+        </button>
+        <button
+          class="dash-tab"
+          id="dtab-services"
+          onclick="switchDashTab('services')"
+        >
+          🔧 Services
+        </button>
+        <button
+          class="dash-tab"
+          id="dtab-profile"
+          onclick="switchDashTab('profile')"
+        >
+          👤 Profile
+        </button>
+        <button
+          class="dash-tab"
+          id="dtab-subscription"
+          onclick="switchDashTab('subscription')"
+        >
+          💳 Subscription
+        </button>
+      </div>
+
+      <!-- Dashboard Content -->
+      <div class="dashboard-content">
+        <!-- Overview Tab -->
+        <div id="dash-overview">
+          <div class="stat-grid">
+            <div class="stat-card" id="stat-card-products">
+              <div class="stat-number" id="stat-products">0</div>
+              <div class="stat-label">Products</div>
+            </div>
+            <div class="stat-card" id="stat-card-services">
+              <div class="stat-number" id="stat-services">0</div>
+              <div class="stat-label">Services</div>
+            </div>
+            <div class="stat-card" id="stat-card-collections">
+              <div class="stat-number" id="stat-collections">0</div>
+              <div class="stat-label">Collections</div>
+            </div>
+            <div class="stat-card" id="stat-card-portfolio">
+              <div class="stat-number" id="stat-portfolio">0</div>
+              <div class="stat-label">Portfolio</div>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <h3 style="margin-bottom: 12px">Quick Actions</h3>
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <button
+              class="btn btn-primary w-full"
+              id="qa-add-product"
+              onclick="
+                switchDashTab('products');
+                openModal('add-product-modal');
+              "
+            >
+              ➕ Add Product
+            </button>
+            <button
+              class="btn btn-outline w-full"
+              id="qa-add-service"
+              onclick="
+                switchDashTab('services');
+                openModal('add-service-modal');
+              "
+            >
+              ➕ Add Service
+            </button>
+            <button
+              class="btn btn-outline w-full"
+              onclick="switchDashTab('profile')"
+            >
+              ✏️ Update Profile
+            </button>
+          </div>
+        </div>
+
+        <!-- Products Tab -->
+        <div id="dash-products" style="display: none">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 16px;
+              gap: 8px;
+            "
+          >
+            <h3>My Products</h3>
+            <div style="display: flex; gap: 6px">
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="openModal('add-collection-modal')"
+              >
+                📁 New Collection
+              </button>
+              <button
+                class="btn btn-primary btn-sm"
+                onclick="openModal('add-product-modal')"
+              >
+                ➕ Add Product
+              </button>
+            </div>
+          </div>
+          <div id="my-products-list">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+        <!-- Services Tab -->
+        <div id="dash-services" style="display: none">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 16px;
+            "
+          >
+            <h3>My Services</h3>
+            <button
+              class="btn btn-primary btn-sm"
+              onclick="openModal('add-service-modal')"
+            >
+              ➕ Add
+            </button>
+          </div>
+          <div id="my-services-list">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+        <!-- Profile Tab -->
+        <div id="dash-profile" style="display: none">
+          <h3 style="margin-bottom: 16px">Update Profile</h3>
+          <div class="form-group">
+            <label>WhatsApp Number</label>
+            <input
+              class="input"
+              type="tel"
+              id="profile-whatsapp"
+              placeholder="08012345678"
+            />
+          </div>
+          <div class="form-group">
+            <label>Working Hours</label>
+            <input
+              class="input"
+              type="text"
+              id="profile-hours"
+              placeholder="9am - 5pm"
+            />
+          </div>
+          <div class="form-group">
+            <label>Working Days</label>
+            <input
+              class="input"
+              type="text"
+              id="profile-days"
+              placeholder="Monday - Friday"
+            />
+          </div>
+          <div class="form-group">
+            <label>Certification / Qualification</label>
+            <input
+              class="input"
+              type="text"
+              id="profile-cert"
+              placeholder="e.g. BSc Computer Science"
+            />
+          </div>
+          <div class="form-group">
+            <label>About (max 70 characters)</label>
+            <textarea
+              class="input"
+              id="profile-about"
+              placeholder="Tell customers about yourself or your business..."
+              rows="3"
+              style="resize: none"
+              oninput="updateAboutWordCount()"
+            ></textarea>
+            <p
+              id="about-word-count"
+              style="font-size: 0.75rem; color: var(--subtext); margin-top: 4px"
+            >
+              0 / 70 characters
+            </p>
+          </div>
+          <div class="form-group">
+            <label>Profile Picture</label>
+            <input
+              class="input"
+              type="file"
+              id="profile-image"
+              accept="image/*"
+            />
+          </div>
+          <button
+            class="btn btn-primary w-full"
+            onclick="handleUpdateProfile()"
+          >
+            Save Profile
+          </button>
+
+          <div style="margin-top: 24px">
+            <h3 style="margin-bottom: 4px">Location</h3>
+            <p
+              id="current-location-text"
+              style="
+                font-size: 0.85rem;
+                color: var(--subtext);
+                margin-bottom: 12px;
+              "
+            ></p>
+            <div class="form-group">
+              <label>State</label>
+              <select
+                class="input"
+                id="location-state"
+                onchange="handleStateChange('location')"
+              >
+                <option value="">Select State</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Local Government Area (LGA)</label>
+              <select class="input" id="location-lga" disabled>
+                <option value="">Select State First</option>
+              </select>
+            </div>
+            <button
+              class="btn btn-primary w-full"
+              onclick="handleUpdateLocation()"
+            >
+              Update Location
+            </button>
+          </div>
+
+          <div style="margin-top: 24px">
+            <h3 style="margin-bottom: 12px">Portfolio Images</h3>
+            <input
+              class="input"
+              type="file"
+              id="portfolio-images"
+              accept="image/*"
+              multiple
+            />
+            <button
+              class="btn btn-outline w-full mt-2"
+              onclick="handlePortfolioUpload()"
+            >
+              Upload Portfolio
+            </button>
+          </div>
+
+          <!-- Current Portfolio -->
+          <div id="current-portfolio" style="margin-top: 16px"></div>
+        </div>
+
+        <!-- Subscription Tab -->
+        <div id="dash-subscription" style="display: none">
+          <h3 style="margin-bottom: 16px">Subscription</h3>
+          <div class="subscription-card">
+            <h3>Current Plan</h3>
+            <div class="sub-status">
+              <div>
+                <p
+                  id="sub-status-text"
+                  style="color: var(--text); font-weight: 600"
+                ></p>
+                <p id="sub-expiry-text" style="font-size: 0.85rem"></p>
+              </div>
+              <span id="sub-badge"></span>
+            </div>
+            <h3 style="margin-bottom: 12px">Renew / Upgrade</h3>
+            <div class="plan-buttons">
+              <button
+                class="btn btn-outline w-full"
+                onclick="handleSubscribe('monthly')"
+              >
+                Monthly<br />
+                <span style="font-size: 0.75rem; color: var(--subtext)"
+                  >₦5,000</span
+                >
+              </button>
+              <button
+                class="btn btn-primary w-full"
+                onclick="handleSubscribe('yearly')"
+              >
+                Yearly<br />
+                <span style="font-size: 0.75rem; opacity: 0.8">₦50,000</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Product Modal -->
+    <div class="modal" id="add-product-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>Add Product</h3>
+          <button class="modal-close" onclick="closeModal('add-product-modal')">
+            ×
+          </button>
+        </div>
+        <div class="form-group">
+          <label>Product Name</label>
+          <input
+            class="input"
+            type="text"
+            id="product-name"
+            placeholder="e.g. Office Chair"
+          />
+        </div>
+        <div class="form-group">
+          <label>Price (₦)</label>
+          <input
+            class="input"
+            type="number"
+            id="product-price"
+            placeholder="50000"
+          />
+        </div>
+        <div class="form-group">
+          <label>Stock</label>
+          <input
+            class="input"
+            type="number"
+            id="product-stock"
+            placeholder="10"
+          />
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <input
+            class="input"
+            type="text"
+            id="product-category"
+            placeholder="e.g. Furniture"
+          />
+        </div>
+        <div class="form-group">
+          <label>Collection (required)</label>
+          <select
+            class="input"
+            id="product-collection"
+            onchange="handleCollectionSelectChange()"
+          >
+            <option value="">Select a collection...</option>
+            <option value="__new__">+ Create new collection</option>
+          </select>
+          <input
+            class="input mt-2"
+            type="text"
+            id="product-new-collection-name"
+            placeholder="New collection name"
+            style="display: none"
+          />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea
+            class="input"
+            id="product-description"
+            placeholder="Describe your product..."
+            rows="3"
+            style="resize: none"
+          ></textarea>
+        </div>
+        <div class="form-group">
+          <label>Product Image</label>
+          <input
+            class="input"
+            type="file"
+            id="product-image"
+            accept="image/*"
+          />
+        </div>
+        <button class="btn btn-primary w-full" onclick="handleAddProduct()">
+          Add Product
+        </button>
+      </div>
+    </div>
+
+    <!-- Add Service Modal -->
+    <div class="modal" id="add-service-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>Add Service</h3>
+          <button class="modal-close" onclick="closeModal('add-service-modal')">
+            ×
+          </button>
+        </div>
+        <div class="form-group">
+          <label>Job Title</label>
+          <input
+            class="input"
+            type="text"
+            id="service-title-input"
+            placeholder="Type to search..."
+            oninput="searchJobTitles(this.value)"
+            autocomplete="off"
+          />
+          <div
+            id="job-title-suggestions"
+            style="
+              background: var(--card);
+              border: 1px solid var(--border);
+              border-radius: 8px;
+              margin-top: 4px;
+              display: none;
+              max-height: 200px;
+              overflow-y: auto;
+            "
+          ></div>
+          <div
+            id="selected-job-titles"
+            style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px"
+          ></div>
+        </div>
+        <div class="form-group">
+          <label>Skills (comma separated)</label>
+          <input
+            class="input"
+            type="text"
+            id="service-skills"
+            placeholder="Brand Identity"
+          />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea
+            class="input"
+            id="service-description"
+            placeholder="Describe your service..."
+            rows="3"
+            style="resize: none"
+          ></textarea>
+        </div>
+        <div class="form-group">
+          <label>Starting Price (₦) — Optional</label>
+          <input
+            class="input"
+            type="number"
+            id="service-price"
+            placeholder="Leave empty if negotiable"
+          />
+        </div>
+        <div class="form-group">
+          <label>Service Images</label>
+          <input
+            class="input"
+            type="file"
+            id="service-images"
+            accept="image/*"
+            multiple
+          />
+        </div>
+        <button class="btn btn-primary w-full" onclick="handleAddService()">
+          Add Service
+        </button>
+      </div>
+    </div>
+
+    <!-- Add Collection Modal -->
+    <div class="modal" id="add-collection-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>Create Collection</h3>
+          <button
+            class="modal-close"
+            onclick="closeModal('add-collection-modal')"
+          >
+            ×
+          </button>
+        </div>
+        <div class="form-group">
+          <label>Collection Name</label>
+          <input
+            class="input"
+            type="text"
+            id="collection-name"
+            placeholder="e.g. Living Room"
+          />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input
+            class="input"
+            type="text"
+            id="collection-description"
+            placeholder="Optional description"
+          />
+        </div>
+        <button class="btn btn-primary w-full" onclick="handleAddCollection()">
+          Create Collection
+        </button>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/dashboard.js"></script>
+  </body>
+</html>

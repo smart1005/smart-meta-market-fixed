@@ -1,0 +1,27 @@
+# Root-level workspace ignore rules
+node_modules/
+**/node_modules/
+.env
+.env.*
+!.env.example
+
+# Project secrets
+**/serviceAccountKey.json
+**/public-dist/
+**/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS/editor files
+.vscode/
+.idea/
+.DS_Store
+
+# Build output
+build/
+out/
+.next/
+.nuxt/
+.output/

@@ -1,0 +1,23 @@
+// Ported directly from public/js/home.js — same category → emoji mapping.
+export const categoryIcons = {
+  Education: "📚",
+  Healthcare: "🏥",
+  "Legal & Finance": "⚖️",
+  "Construction & Skilled Trades": "🔨",
+  "Home Services": "🏠",
+  Automotive: "🚗",
+  Technology: "💻",
+  "Beauty & Fashion": "💄",
+  Events: "🎉",
+  "Business Services": "💼",
+  Security: "🔒",
+  Agriculture: "🌾",
+  "Delivery & Transport": "🚚",
+  "Manufacturing & Industrial": "🏭",
+  "Creative Arts": "🎨",
+  "Fitness & Sports": "💪",
+  "Religious & Community": "🙏",
+  "Repair Services": "🔧",
+  "Real Estate": "🏢",
+  "Specialized Services": "⭐",
+};

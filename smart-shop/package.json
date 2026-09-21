@@ -1,0 +1,38 @@
+{
+  "name": "smart-shop",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon index.js",
+    "seed:jobs": "node seeders/jobTitleSeeder.js",
+    "seed:superadmin": "node seeders/superAdminSeeder.js",
+    "check:vendors": "node seeders/checkVendorStatus.js",
+    "migrate:vendor-profiles": "node seeders/migrateVendorProfiles.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/genai": "^2.10.0",
+    "axios": "^1.18.1",
+    "cloudinary": "^1.41.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.0",
+    "firebase": "^12.15.0",
+    "firebase-admin": "^10.3.0",
+    "geofire-common": "^6.0.0",
+    "multer": "^2.2.0",
+    "multer-storage-cloudinary": "^4.0.0",
+    "pino": "^9.14.0",
+    "pino-pretty": "^11.3.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
