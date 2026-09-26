@@ -198,29 +198,47 @@ const switchDashTab = (tab) => {
 };
 
 // ── Auth: Login ──
+let loginInFlight = false;
+
 const handleLogin = async () => {
+  if (loginInFlight) return; // guards against rapid double-clicks even before the button visually disables
   const email = document.getElementById("login-email").value.trim();
   const password = document.getElementById("login-password").value.trim();
 
   if (!email || !password) return showToast("Fill in all fields", "error");
 
-  const res = await login(email, password);
-  if (res.token) {
-    if (res.user.role !== "vendor") {
-      return showToast("This dashboard is for vendors only", "error");
+  const btn = document.getElementById("login-btn");
+  loginInFlight = true;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Logging in…";
+
+  try {
+    const res = await login(email, password);
+    if (res.token) {
+      if (res.user.role !== "vendor") {
+        return showToast("This dashboard is for vendors only", "error");
+      }
+      setToken(res.token);
+      setUser(res.user);
+      currentUser = res.user;
+      showToast("Login successful!");
+      await showDashboard();
+    } else {
+      showToast(res.error || res.message || "Login failed", "error");
     }
-    setToken(res.token);
-    setUser(res.user);
-    currentUser = res.user;
-    showToast("Login successful!");
-    await showDashboard();
-  } else {
-    showToast(res.error || res.message || "Login failed", "error");
+  } finally {
+    loginInFlight = false;
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 };
 
 // ── Auth: Register ──
+let registerInFlight = false;
+
 const handleRegister = async () => {
+  if (registerInFlight) return;
   const name = document.getElementById("reg-name").value.trim();
   const businessName = document.getElementById("reg-business").value.trim();
   const email = document.getElementById("reg-email").value.trim();
@@ -238,22 +256,34 @@ const handleRegister = async () => {
     return showToast("Select your state and LGA", "error");
   }
 
-  const res = await registerVendor({
-    name,
-    businessName,
-    email,
-    phone,
-    password,
-    vendorType,
-    state,
-    lga,
-  });
+  const btn = document.getElementById("register-btn");
+  registerInFlight = true;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Creating account…";
 
-  if (res.vendorId) {
-    showToast("Account created! Please login.");
-    showLogin();
-  } else {
-    showToast(res.error || res.message || "Registration failed", "error");
+  try {
+    const res = await registerVendor({
+      name,
+      businessName,
+      email,
+      phone,
+      password,
+      vendorType,
+      state,
+      lga,
+    });
+
+    if (res.vendorId) {
+      showToast("Account created! Please login.");
+      showLogin();
+    } else {
+      showToast(res.error || res.message || "Registration failed", "error");
+    }
+  } finally {
+    registerInFlight = false;
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 };
 

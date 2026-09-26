@@ -33,23 +33,38 @@ const showAdminPanel = () => {
 };
 
 // ── Admin Login ──
+let adminLoginInFlight = false;
+
 const handleAdminLogin = async () => {
+  if (adminLoginInFlight) return;
   const email = document.getElementById("admin-email").value.trim();
   const password = document.getElementById("admin-password").value.trim();
 
   if (!email || !password) return showToast("Fill in all fields", "error");
 
-  const res = await login(email, password);
-  if (res.token) {
-    if (res.user.role !== "superAdmin" && res.user.role !== "admin") {
-      return showToast("Access denied — admins only", "error");
+  const btn = document.getElementById("admin-login-btn");
+  adminLoginInFlight = true;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Logging in…";
+
+  try {
+    const res = await login(email, password);
+    if (res.token) {
+      if (res.user.role !== "superAdmin" && res.user.role !== "admin") {
+        return showToast("Access denied — admins only", "error");
+      }
+      setToken(res.token);
+      setUser(res.user);
+      showToast("Login successful!");
+      showAdminPanel();
+    } else {
+      showToast(res.error || res.message || "Login failed", "error");
     }
-    setToken(res.token);
-    setUser(res.user);
-    showToast("Login successful!");
-    showAdminPanel();
-  } else {
-    showToast(res.error || res.message || "Login failed", "error");
+  } finally {
+    adminLoginInFlight = false;
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 };
 
