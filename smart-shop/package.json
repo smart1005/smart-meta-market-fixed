@@ -9,7 +9,8 @@
     "seed:jobs": "node seeders/jobTitleSeeder.js",
     "seed:superadmin": "node seeders/superAdminSeeder.js",
     "check:vendors": "node seeders/checkVendorStatus.js",
-    "migrate:vendor-profiles": "node seeders/migrateVendorProfiles.js"
+    "migrate:vendor-profiles": "node seeders/migrateVendorProfiles.js",
+    "reset:password": "node seeders/resetPassword.js"
   },
   "keywords": [],
   "author": "",

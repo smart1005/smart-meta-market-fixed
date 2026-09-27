@@ -17,9 +17,7 @@ app.use(
 ); // Middleware to parse JSON request bodies
 
 const publicDir = path.join(__dirname, "public");
-const builtFrontendDir = path.join(__dirname, "public-dist");
 app.use(express.static(publicDir));
-app.use(express.static(builtFrontendDir));
 
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
@@ -89,14 +87,9 @@ app.use((req, res, next) => {
     return next();
   }
 
-  const bundledIndex = path.join(builtFrontendDir, "index.html");
-  if (fs.existsSync(bundledIndex)) {
-    return res.sendFile(bundledIndex);
-  }
-
-  const legacyIndex = path.join(publicDir, "index.html");
-  if (fs.existsSync(legacyIndex)) {
-    return res.sendFile(legacyIndex);
+  const indexFile = path.join(publicDir, "index.html");
+  if (fs.existsSync(indexFile)) {
+    return res.sendFile(indexFile);
   }
 
   next();

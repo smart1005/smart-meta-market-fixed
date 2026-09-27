@@ -21,6 +21,37 @@ const mapFirebaseAdminErrorCode = (error) => {
   }
 };
 
+/**
+ * Creates a Firebase Auth user, then runs writeFirestoreDocs(userRecord)
+ * to write whatever Firestore doc(s) that account needs. If the Firestore
+ * write fails for ANY reason, the just-created Auth user is deleted so the
+ * whole operation fails cleanly — instead of leaving an orphaned Auth
+ * account with no Firestore profile, which login() can't handle either
+ * (it 404s with "User profile not found") and which blocks retrying with
+ * the same email (Firebase Auth still reports it as taken).
+ */
+const createUserAtomically = async (authPayload, writeFirestoreDocs) => {
+  const userRecord = await admin.auth().createUser(authPayload);
+  try {
+    await writeFirestoreDocs(userRecord);
+    return userRecord;
+  } catch (firestoreError) {
+    logger.error(
+      { err: firestoreError, uid: userRecord.uid },
+      "Firestore write failed after Auth user created — rolling back Auth user",
+    );
+    try {
+      await admin.auth().deleteUser(userRecord.uid);
+    } catch (rollbackError) {
+      logger.error(
+        { err: rollbackError, uid: userRecord.uid },
+        "CRITICAL: failed to roll back orphaned Auth user — manual cleanup needed in Firebase Console",
+      );
+    }
+    throw firestoreError;
+  }
+};
+
 const register = async (req, res) => {
   try {
     const { email, password, name, phone, address } = req.body;
@@ -31,28 +62,26 @@ const register = async (req, res) => {
         .json({ message: "Email and password are required." });
     }
 
-    const userRecord = await admin.auth().createUser({
-      email,
-      password,
-      displayName: name,
-    });
+    const userRecord = await createUserAtomically(
+      { email, password, displayName: name },
+      async (record) => {
+        await db.collection("users").doc(record.uid).set({
+          name,
+          email,
+          phone,
+          address,
+          role: "customer",
+          createdAt: new Date(),
+        });
+      },
+    );
 
-    await db.collection("users").doc(userRecord.uid).set({
-      name,
-      email,
-      phone,
-      address,
-      role: "customer",
-      createdAt: new Date(),
-    });
-
-    // Send the verification email. login() requires emailVerified === true,
-    // so without this every customer account would be permanently unable
-    // to log in.
     try {
       const apiKey = process.env.FIREBASE_API_KEY;
       if (!apiKey) {
-        logger.error("Missing FIREBASE_API_KEY for register verification email.");
+        logger.error(
+          "Missing FIREBASE_API_KEY for register verification email.",
+        );
       } else {
         const signInRes = await axios.post(
           `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
@@ -64,11 +93,9 @@ const register = async (req, res) => {
         );
       }
     } catch (verificationError) {
-      // Account was created successfully — don't fail the whole signup
-      // over a verification-email hiccup, but log it so it's noticed.
       logger.error(
-        "Account created but verification email failed to send:",
-        verificationError.response?.data || verificationError.message,
+        { err: verificationError.response?.data || verificationError.message },
+        "Account created but verification email failed to send",
       );
     }
 
@@ -78,7 +105,7 @@ const register = async (req, res) => {
       userId: userRecord.uid,
     });
   } catch (error) {
-    logger.error("Error creating account:", error);
+    logger.error({ err: error }, "Error creating account");
     const friendly = mapFirebaseAdminErrorCode(error);
     res.status(friendly ? 400 : 500).json({
       message:
@@ -117,7 +144,6 @@ const login = async (req, res) => {
     const token = response.data.idToken;
     const uid = response.data.localId;
 
-    // ensure user has verified their email
     const firebaseUser = await admin.auth().getUser(uid);
     if (!firebaseUser.emailVerified) {
       return res.status(403).json({
@@ -146,7 +172,10 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error("Error logging in:", error.response?.data || error.message);
+    logger.error(
+      { err: error.response?.data || error.message },
+      "Error logging in",
+    );
 
     const firebaseCode = error.response?.data?.error?.message;
 
@@ -157,9 +186,6 @@ const login = async (req, res) => {
     }
 
     if (firebaseCode) {
-      // Any Firebase auth error (wrong password, unknown email, etc.) gets
-      // the exact same response — this prevents the login endpoint being
-      // used to check which emails are registered on the platform.
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
@@ -181,26 +207,25 @@ const createAdmin = async (req, res) => {
     const allowedRoles = ["admin", "superAdmin"];
     const assignedRole = allowedRoles.includes(role) ? role : "admin";
 
-    const userRecord = await admin.auth().createUser({
-      email,
-      password,
-      displayName: name,
-    });
-
-    await db.collection("users").doc(userRecord.uid).set({
-      name,
-      email,
-      phone,
-      role: assignedRole,
-      createdAt: new Date(),
-    });
+    const userRecord = await createUserAtomically(
+      { email, password, displayName: name },
+      async (record) => {
+        await db.collection("users").doc(record.uid).set({
+          name,
+          email,
+          phone,
+          role: assignedRole,
+          createdAt: new Date(),
+        });
+      },
+    );
 
     res.status(201).json({
       message: `${assignedRole} account created successfully`,
       userId: userRecord.uid,
     });
   } catch (error) {
-    logger.error("Error creating admin:", error);
+    logger.error({ err: error }, "Error creating admin");
     const friendly = mapFirebaseAdminErrorCode(error);
     res.status(friendly ? 400 : 500).json({
       message:
@@ -248,47 +273,34 @@ const registerVendor = async (req, res) => {
       });
     }
 
-    const userRecord = await admin.auth().createUser({
-      email,
-      password,
-      displayName: businessName,
-    });
-
     const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const nowTimestamp = admin.firestore.Timestamp.fromDate(new Date());
 
-    // users/{uid}: identity fields only, shared shape across all roles.
-    await db.collection("users").doc(userRecord.uid).set({
-      name,
-      email,
-      phone,
-      role: "vendor",
-      createdAt: nowTimestamp,
-    });
+    const userRecord = await createUserAtomically(
+      { email, password, displayName: businessName },
+      async (record) => {
+        await db.collection("users").doc(record.uid).set({
+          name,
+          email,
+          phone,
+          role: "vendor",
+          createdAt: nowTimestamp,
+        });
 
-    // vendorProfiles/{uid}: everything vendor-specific — business data,
-    // subscription state, portfolio/certification media. Kept separate so
-    // a customer profile read never has to fetch (or pay Firestore reads
-    // for) fields it will never use, and so this collection alone can be
-    // queried for "active vendors" without a role filter.
-    await db
-      .collection("vendorProfiles")
-      .doc(userRecord.uid)
-      .set({
-        businessName,
-        vendorType,
-        location: locationData,
-        subscriptionStatus: "active",
-        subscriptionExpiry: admin.firestore.Timestamp.fromDate(expiryDate),
-        createdAt: nowTimestamp,
-      });
+        await db
+          .collection("vendorProfiles")
+          .doc(record.uid)
+          .set({
+            businessName,
+            vendorType,
+            location: locationData,
+            subscriptionStatus: "active",
+            subscriptionExpiry: admin.firestore.Timestamp.fromDate(expiryDate),
+            createdAt: nowTimestamp,
+          });
+      },
+    );
 
-    // sign in to obtain idToken and send verification email.
-    // The account + Firestore doc already exist at this point — if this
-    // step fails, we must NOT fall into the outer catch (which would tell
-    // the vendor signup failed while a real account exists, leading them to
-    // retry and hit "email already exists" with no way to get a new
-    // verification email sent).
     try {
       const apiKey = process.env.FIREBASE_API_KEY;
       if (!apiKey) {
@@ -317,8 +329,8 @@ const registerVendor = async (req, res) => {
       });
     } catch (verificationError) {
       logger.error(
-        "Vendor account created but verification email failed to send:",
-        verificationError.response?.data || verificationError.message,
+        { err: verificationError.response?.data || verificationError.message },
+        "Vendor account created but verification email failed to send",
       );
       return res.status(201).json({
         message:
@@ -327,7 +339,7 @@ const registerVendor = async (req, res) => {
       });
     }
   } catch (error) {
-    logger.error("Error creating vendor account:", error);
+    logger.error({ err: error }, "Error creating vendor account");
     const friendly = mapFirebaseAdminErrorCode(error);
     res.status(friendly ? 400 : 500).json({
       message:
@@ -347,26 +359,25 @@ const createSuperAdmin = async (req, res) => {
         .json({ message: "Email and password are required." });
     }
 
-    const userRecord = await admin.auth().createUser({
-      email,
-      password,
-      displayName: name,
-    });
-
-    await db.collection("users").doc(userRecord.uid).set({
-      name,
-      email,
-      phone,
-      role: "superAdmin",
-      createdAt: new Date(),
-    });
+    const userRecord = await createUserAtomically(
+      { email, password, displayName: name },
+      async (record) => {
+        await db.collection("users").doc(record.uid).set({
+          name,
+          email,
+          phone,
+          role: "superAdmin",
+          createdAt: new Date(),
+        });
+      },
+    );
 
     res.status(201).json({
       message: "SuperAdmin account created successfully",
       userId: userRecord.uid,
     });
   } catch (error) {
-    logger.error("Error creating superAdmin:", error);
+    logger.error({ err: error }, "Error creating superAdmin");
     const friendly = mapFirebaseAdminErrorCode(error);
     res.status(friendly ? 400 : 500).json({
       message:
@@ -398,20 +409,22 @@ const forgotPassword = async (req, res) => {
         email,
       },
     );
-  } catch (error) {
-    // Log the real outcome, but always respond the same way to the client
-    // regardless of whether the email exists — this prevents the endpoint
-    // being used to check which emails are registered on the platform.
-    logger.error(
-      "Error sending password reset email:",
-      error.response?.data || error.message,
-    );
-  }
 
-  res.status(200).json({
-    message:
-      "If an account exists with that email, a password reset link has been sent.",
-  });
+    return res.status(200).json({
+      message:
+        "If an account exists with that email, a password reset link has been sent.",
+    });
+  } catch (error) {
+    logger.error(
+      { err: error.response?.data || error.message },
+      "Error sending password reset email",
+    );
+
+    return res.status(500).json({
+      message:
+        "Something went wrong sending the password reset link. Please try again.",
+    });
+  }
 };
 
 module.exports = {

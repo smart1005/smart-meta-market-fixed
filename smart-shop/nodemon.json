@@ -1,0 +1,12 @@
+{
+  "ignore": ["node_modules", "public-dist", "public/js", "*.log"],
+  "watch": [
+    "index.js",
+    "config",
+    "controllers",
+    "middleware",
+    "routes",
+    "seeders",
+    "utils"
+  ]
+}

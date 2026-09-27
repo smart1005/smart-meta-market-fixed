@@ -17,7 +17,7 @@ const registerVendorSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
   password: z.string().min(6, "Password must be at least 6 characters."),
   name: z.string().trim().optional(),
-  phone: z.string().trim().optional(),
+  phone: z.string().trim().min(1, "Phone number is required."),
   businessName: z.string().trim().min(1, "Business name is required."),
   vendorType: z.enum(["product", "service"], {
     errorMap: () => ({ message: "vendorType must be 'product' or 'service'." }),
@@ -30,7 +30,7 @@ const createAdminSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
   password: z.string().min(6, "Password must be at least 6 characters."),
   name: z.string().trim().optional(),
-  phone: z.string().trim().optional(),
+  phone: z.string().trim().min(1, "Phone number is required."),
   role: z.enum(["admin", "superAdmin"]).optional(),
 });
 
