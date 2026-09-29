@@ -30,27 +30,31 @@ const mapFirebaseAdminErrorCode = (error) => {
  * (it 404s with "User profile not found") and which blocks retrying with
  * the same email (Firebase Auth still reports it as taken).
  */
-const createUserAtomically = async (authPayload, writeFirestoreDocs) => {
-  const userRecord = await admin.auth().createUser(authPayload);
-  try {
-    await writeFirestoreDocs(userRecord);
-    return userRecord;
-  } catch (firestoreError) {
-    logger.error(
-      { err: firestoreError, uid: userRecord.uid },
-      "Firestore write failed after Auth user created — rolling back Auth user",
-    );
+const createUserAtomically = async (authPayload, writeFirestoreDocs) =>
+  withEmailLock(authPayload.email, async () => {
+    const userRecord = await admin.auth().createUser(authPayload);
+
     try {
-      await admin.auth().deleteUser(userRecord.uid);
-    } catch (rollbackError) {
+      await writeFirestoreDocs(userRecord);
+      return userRecord;
+    } catch (firestoreError) {
       logger.error(
-        { err: rollbackError, uid: userRecord.uid },
-        "CRITICAL: failed to roll back orphaned Auth user — manual cleanup needed in Firebase Console",
+        { err: firestoreError, uid: userRecord.uid },
+        "Firestore write failed after Auth user created — rolling back Auth user",
       );
+
+      try {
+        await admin.auth().deleteUser(userRecord.uid);
+      } catch (rollbackError) {
+        logger.error(
+          { err: rollbackError, uid: userRecord.uid },
+          "CRITICAL: failed to roll back orphaned Auth user — manual cleanup needed in Firebase Console",
+        );
+      }
+
+      throw firestoreError;
     }
-    throw firestoreError;
-  }
-};
+  });
 
 const register = async (req, res) => {
   try {
@@ -78,6 +82,7 @@ const register = async (req, res) => {
 
     try {
       const apiKey = process.env.FIREBASE_API_KEY;
+
       if (!apiKey) {
         logger.error(
           "Missing FIREBASE_API_KEY for register verification email.",
@@ -87,6 +92,7 @@ const register = async (req, res) => {
           `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
           { email, password, returnSecureToken: true },
         );
+
         await axios.post(
           `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`,
           { requestType: "VERIFY_EMAIL", idToken: signInRes.data.idToken },
@@ -105,8 +111,17 @@ const register = async (req, res) => {
       userId: userRecord.uid,
     });
   } catch (error) {
+    if (error.code === "REGISTRATION_IN_PROGRESS") {
+      return res.status(409).json({
+        message:
+          "This email is already being registered. Please wait a moment and try again.",
+      });
+    }
+
     logger.error({ err: error }, "Error creating account");
+
     const friendly = mapFirebaseAdminErrorCode(error);
+
     res.status(friendly ? 400 : 500).json({
       message:
         friendly ||
@@ -126,8 +141,10 @@ const login = async (req, res) => {
     }
 
     const apiKey = process.env.FIREBASE_API_KEY;
+
     if (!apiKey) {
       logger.error("Missing FIREBASE_API_KEY for login.");
+
       return res.status(500).json({
         message: "Something went wrong logging you in. Please try again.",
       });
@@ -141,10 +158,12 @@ const login = async (req, res) => {
         returnSecureToken: true,
       },
     );
+
     const token = response.data.idToken;
     const uid = response.data.localId;
 
     const firebaseUser = await admin.auth().getUser(uid);
+
     if (!firebaseUser.emailVerified) {
       return res.status(403).json({
         message:
@@ -154,8 +173,11 @@ const login = async (req, res) => {
     }
 
     const userDoc = await db.collection("users").doc(uid).get();
+
     if (!userDoc.exists) {
-      return res.status(404).json({ message: "User profile not found." });
+      return res.status(404).json({
+        message: "User profile not found.",
+      });
     }
 
     const userData = userDoc.data();
@@ -186,7 +208,9 @@ const login = async (req, res) => {
     }
 
     if (firebaseCode) {
-      return res.status(401).json({ message: "Invalid email or password." });
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
     }
 
     res.status(500).json({
@@ -198,6 +222,7 @@ const login = async (req, res) => {
 const createAdmin = async (req, res) => {
   try {
     const { email, password, name, phone, role } = req.body;
+
     if (!email || !password) {
       return res
         .status(400)
@@ -225,8 +250,17 @@ const createAdmin = async (req, res) => {
       userId: userRecord.uid,
     });
   } catch (error) {
+    if (error.code === "REGISTRATION_IN_PROGRESS") {
+      return res.status(409).json({
+        message:
+          "This email is already being registered. Please wait a moment and try again.",
+      });
+    }
+
     logger.error({ err: error }, "Error creating admin");
+
     const friendly = mapFirebaseAdminErrorCode(error);
+
     res.status(friendly ? 400 : 500).json({
       message:
         friendly ||
@@ -253,19 +287,27 @@ const registerVendor = async (req, res) => {
         .status(400)
         .json({ message: "Email and password are required." });
     }
+
     if (!businessName) {
-      return res.status(400).json({ message: "Business name is required." });
+      return res.status(400).json({
+        message: "Business name is required.",
+      });
     }
+
     if (!vendorType || !["product", "service"].includes(vendorType)) {
-      return res
-        .status(400)
-        .json({ message: "vendorType must be 'product' or 'service'." });
+      return res.status(400).json({
+        message: "vendorType must be 'product' or 'service'.",
+      });
     }
+
     if (!state || !lga) {
-      return res.status(400).json({ message: "State and LGA are required." });
+      return res.status(400).json({
+        message: "State and LGA are required.",
+      });
     }
 
     const locationData = buildLocationData(state, lga);
+
     if (!locationData) {
       return res.status(400).json({
         message:
@@ -273,7 +315,10 @@ const registerVendor = async (req, res) => {
       });
     }
 
-    const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const expiryDate = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    );
+
     const nowTimestamp = admin.firestore.Timestamp.fromDate(new Date());
 
     const userRecord = await createUserAtomically(
@@ -295,7 +340,8 @@ const registerVendor = async (req, res) => {
             vendorType,
             location: locationData,
             subscriptionStatus: "active",
-            subscriptionExpiry: admin.firestore.Timestamp.fromDate(expiryDate),
+            subscriptionExpiry:
+              admin.firestore.Timestamp.fromDate(expiryDate),
             createdAt: nowTimestamp,
           });
       },
@@ -303,8 +349,10 @@ const registerVendor = async (req, res) => {
 
     try {
       const apiKey = process.env.FIREBASE_API_KEY;
+
       if (!apiKey) {
         logger.error("Missing FIREBASE_API_KEY for registerVendor.");
+
         return res.status(201).json({
           message:
             "Vendor account created successfully, but we couldn't send a verification email. Please contact support to verify your account.",
@@ -314,12 +362,19 @@ const registerVendor = async (req, res) => {
 
       const signInRes = await axios.post(
         `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
-        { email, password, returnSecureToken: true },
+        {
+          email,
+          password,
+          returnSecureToken: true,
+        },
       );
 
       await axios.post(
         `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`,
-        { requestType: "VERIFY_EMAIL", idToken: signInRes.data.idToken },
+        {
+          requestType: "VERIFY_EMAIL",
+          idToken: signInRes.data.idToken,
+        },
       );
 
       return res.status(201).json({
@@ -329,9 +384,14 @@ const registerVendor = async (req, res) => {
       });
     } catch (verificationError) {
       logger.error(
-        { err: verificationError.response?.data || verificationError.message },
+        {
+          err:
+            verificationError.response?.data ||
+            verificationError.message,
+        },
         "Vendor account created but verification email failed to send",
       );
+
       return res.status(201).json({
         message:
           "Vendor account created successfully, but we couldn't send a verification email. Please contact support to verify your account.",
@@ -339,8 +399,17 @@ const registerVendor = async (req, res) => {
       });
     }
   } catch (error) {
+    if (error.code === "REGISTRATION_IN_PROGRESS") {
+      return res.status(409).json({
+        message:
+          "This email is already being registered. Please wait a moment and try again.",
+      });
+    }
+
     logger.error({ err: error }, "Error creating vendor account");
+
     const friendly = mapFirebaseAdminErrorCode(error);
+
     res.status(friendly ? 400 : 500).json({
       message:
         friendly ||
@@ -377,25 +446,39 @@ const createSuperAdmin = async (req, res) => {
       userId: userRecord.uid,
     });
   } catch (error) {
+    if (error.code === "REGISTRATION_IN_PROGRESS") {
+      return res.status(409).json({
+        message:
+          "This email is already being registered. Please wait a moment and try again.",
+      });
+    }
+
     logger.error({ err: error }, "Error creating superAdmin");
+
     const friendly = mapFirebaseAdminErrorCode(error);
+
     res.status(friendly ? 400 : 500).json({
       message:
         friendly ||
-        "Something went wrong creating that account. Please try again.",
+        "Something went wrong creating your account. Please try again.",
     });
   }
 };
 
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
+
   if (!email) {
-    return res.status(400).json({ message: "Email is required" });
+    return res.status(400).json({
+      message: "Email is required",
+    });
   }
 
   const apiKey = process.env.FIREBASE_API_KEY;
+
   if (!apiKey) {
     logger.error("Missing FIREBASE_API_KEY for forgotPassword.");
+
     return res.status(500).json({
       message: "Something went wrong. Please try again.",
     });
@@ -416,7 +499,11 @@ const forgotPassword = async (req, res) => {
     });
   } catch (error) {
     logger.error(
-      { err: error.response?.data || error.message },
+      {
+        err:
+          error.response?.data ||
+          error.message,
+      },
       "Error sending password reset email",
     );
 

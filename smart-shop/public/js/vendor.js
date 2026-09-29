@@ -34,11 +34,10 @@ const renderVendorPage = (vendor, collections, services) => {
 
   const callLink = vendor.phone ? `tel:${vendor.phone}` : "#";
 
-  page.innerHTML = `
+    page.innerHTML = `
     <!-- Vendor Hero -->
     <div class="vendor-hero">
-      <img src="${vendor.profileImage || "https://via.placeholder.com/800x200/1a1a1a/FF6B35?text=Smart+MetaMarket"}" alt="${vendor.businessName}" />
-      <img class="vendor-avatar" src="${vendor.profileImage || "https://via.placeholder.com/80x80/FF6B35/ffffff?text=" + vendor.businessName?.charAt(0)}" alt="${vendor.businessName}" />
+      <img class="vendor-avatar" src="${vendor.profileImage || "https://via.placeholder.com/200x200/2F6FFF/ffffff?text=" + vendor.businessName?.charAt(0)}" alt="${vendor.businessName}" />
     </div>
 
     <!-- Vendor Info -->

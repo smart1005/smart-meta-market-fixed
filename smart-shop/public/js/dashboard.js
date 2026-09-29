@@ -287,6 +287,13 @@ const handleRegister = async () => {
   }
 };
 
+const handleForgotPassword = async () => {
+  const email = document.getElementById("login-email").value.trim();
+  if (!email) return showToast("Type your email above first", "error");
+  const res = await forgotPassword(email);
+  showToast(res.message || "If that email exists, a reset link has been sent.");
+};
+
 // ── Show Login / Register ──
 const showLogin = () => {
   document.getElementById("login-form").style.display = "block";
@@ -1068,4 +1075,7 @@ Object.assign(window, {
   searchJobTitles,
   selectJobTitle,
   removeJobTitle,
+  handleCollectionSelectChange,
+  handleForgotPassword,
+  showInactiveBanner,
 });

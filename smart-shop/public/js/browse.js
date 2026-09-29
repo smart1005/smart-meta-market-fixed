@@ -66,8 +66,7 @@ const switchTab = (tab) => {
 };
 
 const requestCustomerLocation = () => {
-  if (locationRequested) return;
-  locationRequested = true;
+  if (customerLocation) return; // already have it, no need to ask again
 
   if (!navigator.geolocation) {
     showLocationMessage(
@@ -87,7 +86,7 @@ const requestCustomerLocation = () => {
     },
     () => {
       showLocationMessage(
-        "Turn on your location to see vendors closer to you.",
+        "Turn on your location to see vendors closer to you — tap Go to try again.",
       );
     },
   );

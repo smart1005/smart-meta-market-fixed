@@ -367,6 +367,44 @@ const removePortfolioImage = async (req, res) => {
   }
 };
 
+const getAllVendorsForAdmin = async (req, res) => {
+  try {
+    const profileSnapshot = await db.collection("vendorProfiles").get();
+
+    if (profileSnapshot.empty) {
+      return res.status(200).json({ vendors: [] });
+    }
+
+    const userRefs = profileSnapshot.docs.map((doc) =>
+      db.collection("users").doc(doc.id),
+    );
+    const userDocs = await db.getAll(...userRefs);
+    const usersById = new Map(
+      userDocs.filter((d) => d.exists).map((d) => [d.id, d.data()]),
+    );
+
+    const vendors = profileSnapshot.docs
+      .filter((doc) => usersById.has(doc.id))
+      .map((doc) => {
+        const profile = doc.data();
+        if (
+          profile.subscriptionStatus === "active" &&
+          !isGenuinelyActive(doc.id, profile)
+        ) {
+          profile.subscriptionStatus = "inactive";
+        }
+        return { id: doc.id, ...usersById.get(doc.id), ...profile };
+      });
+
+    res.status(200).json({ vendors });
+  } catch (error) {
+    logger.error({ err: error }, "Error fetching vendors for admin");
+    res.status(500).json({
+      message: "Unable to load vendors right now. Please try again.",
+    });
+  }
+};
+
 module.exports = {
   updateVendorProfile,
   updateVendorLocation,
@@ -375,4 +413,5 @@ module.exports = {
   updateVendorStatus,
   addPortfolioImages,
   removePortfolioImage,
+  getAllVendorsForAdmin
 };

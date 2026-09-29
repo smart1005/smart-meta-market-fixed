@@ -86,7 +86,7 @@ const switchAdminTab = (tab) => {
 const loadAllData = async () => {
   try {
     const [vendorsRes, productsRes, servicesRes] = await Promise.all([
-      getVendors(),
+      getAdminVendors(),
       getProducts(),
       getServices(),
     ]);

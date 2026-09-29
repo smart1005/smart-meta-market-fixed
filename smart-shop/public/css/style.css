@@ -6,19 +6,23 @@
 }
 
 :root {
-  --bg: #5e919c;
-  --card: #141414;
-  --card-hover: #1a1a1a;
-  --primary: #FF6B35;
-  --primary-hover: #ff8c5a;
-  --accent: #FFD700;
-  --text: #ffffff;
-  --subtext: #aaaaaa;
-  --border: #2a2a2a;
-  --border-hover: #3a3a3a;
+  --navy: #0B1220;
+  --navy-soft: #141B2E;
+  --primary: #1D4ED8;
+  --primary-hover: #2F5FE0;
+  --accent: #2F6FFF;
+  --accent-hover: #5B93FF;
+  --bg: #F5F7FA;
+  --card: #FFFFFF;
+  --border: #E3E7EE;
+  --border-hover: #C7CEDB;
+  --text: #101828;
+  --subtext: #667085;
+  --text-on-navy: #FFFFFF;
+  --navy-subtext: #A6B0C3;
   --success: #10b981;
-  --glow: rgba(255, 107, 53, 0.12);
-  --gold-glow: rgba(255, 215, 0, 0.08);
+  --glow: rgba(47, 111, 255, 0.15);
+  --accent-glow: rgba(47, 111, 255, 0.10);
 }
 
 html {
@@ -57,24 +61,40 @@ a {
 }
 
 .btn-primary {
-  background: var(--primary);
+  background: var(--accent);
   color: white;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
+  background: var(--accent-hover);
   transform: translateY(-2px);
 }
 
 .btn-outline {
   background: transparent;
-  color: var(--primary);
-  border: 2px solid var(--primary);
+  color: var(--accent);
+  border: 2px solid var(--accent);
 }
 
 .btn-outline:hover {
-  background: var(--primary);
+  background: var(--accent);
   color: white;
+}
+
+.btn-danger {
+  background: transparent;
+  color: #ef4444;
+  border: 2px solid #ef4444;
+}
+
+.btn-danger:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.8rem;
 }
 
 /* ── Top Navigation ── */
@@ -88,19 +108,19 @@ a {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: rgba(10, 10, 10, 0.95);
+  background: rgba(11, 18, 32, 0.95);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .navbar-logo {
   font-size: 1.3rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--text-on-navy);
 }
 
 .navbar-logo span {
-  color: var(--text);
+  color: var(--accent);
 }
 
 .navbar-actions {
@@ -120,6 +140,7 @@ a {
   text-align: center;
   padding: 20px;
   overflow: hidden;
+  background: var(--navy);
 }
 
 #hero-canvas {
@@ -140,16 +161,17 @@ a {
   font-size: 2.5rem;
   margin-bottom: 10px;
   line-height: 1.2;
+  color: var(--text-on-navy);
 }
 
 .hero-content h1 span {
-  color: var(--primary);
+  color: var(--accent);
 }
 
 .hero-content p {
   font-size: 1rem;
   margin-bottom: 30px;
-  color: var(--subtext);
+  color: var(--navy-subtext);
 }
 
 .hero-search {
@@ -171,8 +193,8 @@ a {
 .search-box {
   display: flex;
   align-items: center;
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: var(--navy-soft);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   padding: 12px 16px;
   gap: 10px;
@@ -182,22 +204,22 @@ a {
   background: none;
   border: none;
   outline: none;
-  color: var(--text);
+  color: var(--text-on-navy);
   font-size: 0.95rem;
   width: 100%;
 }
 
 .search-box input::placeholder {
-  color: var(--subtext);
+  color: var(--navy-subtext);
 }
 
 .search-box .search-icon {
-  color: var(--subtext);
+  color: var(--navy-subtext);
   font-size: 1rem;
 }
 
 .search-box .search-btn {
-  background: var(--primary);
+  background: var(--accent);
   color: white;
   border: none;
   padding: 6px 14px;
@@ -220,7 +242,7 @@ a {
 }
 
 .section-header a {
-  color: var(--primary);
+  color: var(--accent);
   font-size: 0.9rem;
 }
 
@@ -242,8 +264,9 @@ a {
 }
 
 .category-card:hover {
-  border-color: var(--primary);
+  border-color: var(--accent);
   transform: translateY(-3px);
+  box-shadow: 0 6px 20px var(--glow);
 }
 
 .category-card .icon {
@@ -256,11 +279,17 @@ a {
   color: var(--text);
 }
 
-/* ── Vendor Cards ── */
+/* ── Vendor Cards / Featured Grid ── */
 .vendor-grid {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+}
+
+@media (min-width: 700px) {
+  .vendor-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .vendor-card {
@@ -273,7 +302,7 @@ a {
 }
 
 .vendor-card:hover {
-  border-color: var(--primary);
+  border-color: var(--accent);
   transform: translateY(-4px);
   box-shadow: 0 8px 30px var(--glow);
 }
@@ -296,7 +325,7 @@ a {
 
 .vendor-card-body .vendor-by {
   font-size: 0.8rem;
-  color: var(--accent);
+  color: var(--primary);
   margin-bottom: 8px;
 }
 
@@ -312,7 +341,7 @@ a {
 }
 
 .vendor-type-badge {
-  background: var(--primary);
+  background: var(--accent);
   color: white;
   padding: 4px 10px;
   border-radius: 20px;
@@ -336,9 +365,9 @@ a {
   justify-content: space-around;
   align-items: center;
   padding: 12px 0;
-  background: rgba(10, 10, 10, 0.95);
+  background: rgba(11, 18, 32, 0.95);
   backdrop-filter: blur(10px);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .bottom-nav-item {
@@ -347,13 +376,13 @@ a {
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  color: var(--subtext);
+  color: var(--navy-subtext);
   transition: color 0.3s ease;
   font-size: 0.7rem;
 }
 
 .bottom-nav-item.active {
-  color: var(--primary);
+  color: var(--accent);
 }
 
 .bottom-nav-item svg {
@@ -383,7 +412,7 @@ a {
 }
 
 .input:focus {
-  border-color: var(--primary);
+  border-color: var(--accent);
 }
 
 .input::placeholder {
@@ -396,7 +425,7 @@ a {
 .mt-3 { margin-top: 24px; }
 .mb-1 { margin-bottom: 8px; }
 .mb-2 { margin-bottom: 16px; }
-.text-primary { color: var(--primary); }
+.text-primary { color: var(--accent); }
 .text-sub { color: var(--subtext); }
 .text-center { text-align: center; }
 .w-full { width: 100%; }
@@ -412,7 +441,7 @@ a {
   width: 40px;
   height: 40px;
   border: 3px solid var(--border);
-  border-top-color: var(--primary);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin: 40px auto;
@@ -428,9 +457,9 @@ a {
   bottom: 90px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--card);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background: var(--navy);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-on-navy);
   padding: 12px 24px;
   border-radius: 8px;
   font-size: 0.9rem;
@@ -444,7 +473,9 @@ a {
 }
 
 .toast.success { border-color: var(--success); }
-.toast.error { border-color: red; }/* ── Horizontal Scroll Section ── */
+.toast.error { border-color: #ef4444; }
+
+/* ── Horizontal Scroll Section ── */
 .h-scroll {
   display: flex;
   gap: 14px;
@@ -463,17 +494,14 @@ a {
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
-  min-width: 160px;
-  max-width: 160px;
   cursor: pointer;
   transition: all 0.3s ease;
-  flex-shrink: 0;
   flex-direction: column;
   display: flex;
 }
 
 .product-card:hover {
-  border-color: var(--primary);
+  border-color: var(--accent);
   transform: translateY(-3px);
   box-shadow: 0 6px 20px var(--glow);
 }
@@ -502,7 +530,7 @@ a {
 
 .product-card-body .by {
   font-size: 0.75rem;
-  color: var(--accent);
+  color: var(--primary);
   margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;
@@ -511,8 +539,13 @@ a {
 
 .product-card-body .price {
   font-size: 0.9rem;
-  color: var(--primary);
+  color: var(--accent);
   font-weight: 700;
+}
+
+.search-btn:active {
+  transform: scale(0.95);
+  opacity: 0.85;
 }
 
 /* ── Service Card (horizontal scroll) ── */
@@ -521,18 +554,15 @@ a {
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
-  min-width: 200px;
-  max-width: 200px;
   cursor: pointer;
   transition: all 0.3s ease;
-  flex-shrink: 0;
   padding: 16px;
-}
+}a
 
 .service-card:hover {
   border-color: var(--accent);
   transform: translateY(-3px);
-  box-shadow: 0 6px 20px var(--gold-glow);
+  box-shadow: 0 6px 20px var(--glow);
 }
 
 .service-card .service-icon {
@@ -548,7 +578,7 @@ a {
 
 .service-card .by {
   font-size: 0.75rem;
-  color: var(--accent);
+  color: var(--primary);
 }
 
 /* ── Section Header ── */
@@ -570,13 +600,13 @@ a {
   font-weight: 600;
 }
 
-/* ── Gold accent text ── */
+/* ── Accent text (was gold) ── */
 .text-gold { color: var(--accent); }
 
 /* ── Glow card ── */
 .glow-card {
   box-shadow: 0 0 20px var(--glow);
-  border-color: var(--primary) !important;
+  border-color: var(--accent) !important;
 }
 
 /* ── Category chip ── */
@@ -599,7 +629,7 @@ a {
 .category-chip:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: var(--gold-glow);
+  background: var(--accent-glow);
 }
 
 /* ── Hero subtitle ── */

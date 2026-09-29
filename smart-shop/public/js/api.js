@@ -179,6 +179,22 @@ const getVendors = async () => {
   return handleResponse(res);
 };
 
+const getAdminVendors = async () => {
+  const res = await fetch(`${BASE_URL}/vendors/admin/all`, {
+    headers: authHeaders(),
+  });
+  return handleResponse(res);
+};
+
+const forgotPassword = async (email) => {
+  const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ email }),
+  });
+  return handleResponse(res);
+};
+
 const getVendorProfile = async (id) => {
   const res = await fetch(`${BASE_URL}/vendors/${id}`);
   return handleResponse(res);

@@ -11,10 +11,18 @@ const {
   addPortfolioImages,
   updateVendorStatus,
   removePortfolioImage,
+  getAllVendorsForAdmin
 } = require("../controllers/vendorController");
 
 router.get("/", asyncHandler(getVendors));
 router.get("/:id", asyncHandler(getVendorProfile));
+
+router.get(
+  "/admin/all",
+  protect,
+  restrictTo("admin", "superAdmin"),
+  asyncHandler(getAllVendorsForAdmin),
+);
 
 router.put(
   "/profile",
