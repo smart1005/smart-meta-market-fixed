@@ -13,14 +13,19 @@ const switchVendorTab = (tab) => {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.remove("active");
   });
-  document.getElementById(`tab-${tab}`).classList.add("active");
+  document.getElementById(`tab-${tab}`)?.classList.add("active");
 
-  document.getElementById("tab-content-products").style.display =
-    tab === "products" ? "block" : "none";
-  document.getElementById("tab-content-services").style.display =
-    tab === "services" ? "block" : "none";
-  document.getElementById("tab-content-portfolio").style.display =
-    tab === "portfolio" ? "block" : "none";
+  const productsEl = document.getElementById("tab-content-products");
+  if (productsEl)
+    productsEl.style.display = tab === "products" ? "block" : "none";
+
+  const servicesEl = document.getElementById("tab-content-services");
+  if (servicesEl)
+    servicesEl.style.display = tab === "services" ? "block" : "none";
+
+  const portfolioEl = document.getElementById("tab-content-portfolio");
+  if (portfolioEl)
+    portfolioEl.style.display = tab === "portfolio" ? "block" : "none";
 };
 
 // ── Render Vendor Page ──
@@ -52,15 +57,23 @@ const renderVendorPage = (vendor, collections, services) => {
       </div>
 
       <!-- Availability -->
-      ${
-        vendor.availability
-          ? `
+            ${
+              vendor.availability
+                ? `
         <div class="card mb-2" style="padding: 12px 16px;">
           <p style="font-size: 0.85rem;">
             🕐 ${vendor.availability.workingHours || ""} 
             ${vendor.availability.workingDays ? "• " + vendor.availability.workingDays : ""}
-            ${vendor.availability.isOpen ? '<span class="badge-active" style="margin-left: 8px;">Open</span>' : ""}
           </p>
+        </div>
+      `
+                : ""
+            }
+      ${
+        vendor.certification
+          ? `
+        <div class="card mb-2" style="padding: 12px 16px;">
+          <p style="font-size: 0.85rem;">🎓 ${vendor.certification}</p>
         </div>
       `
           : ""

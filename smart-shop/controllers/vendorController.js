@@ -405,8 +405,40 @@ const getAllVendorsForAdmin = async (req, res) => {
   }
 };
 
+// Authenticated: returns the logged-in vendor's OWN full profile, including
+// subscriptionExpiry and lastPayment — fields the public getVendorProfile
+// deliberately strips out (customers shouldn't see another vendor's
+// billing info), which meant a vendor's own dashboard could never see
+// their own expiry date either. This is the vendor-only equivalent.
+const getMyVendorProfile = async (req, res) => {
+  try {
+    const id = req.user.id;
+    const [userDoc, vendorProfileDoc] = await Promise.all([
+      db.collection("users").doc(id).get(),
+      db.collection("vendorProfiles").doc(id).get(),
+    ]);
+
+    if (!userDoc.exists || !vendorProfileDoc.exists) {
+      return res.status(404).json({ message: "Vendor profile not found" });
+    }
+
+    const { password, ...publicUser } = userDoc.data();
+    const vendorProfile = vendorProfileDoc.data();
+
+    res.status(200).json({
+      vendor: { id, ...publicUser, ...vendorProfile },
+    });
+  } catch (error) {
+    logger.error({ err: error }, "Error fetching own vendor profile");
+    res.status(500).json({
+      message: "Unable to load your profile right now. Please try again.",
+    });
+  }
+};
+
 module.exports = {
   updateVendorProfile,
+  getMyVendorProfile,
   updateVendorLocation,
   getVendorProfile,
   getVendors,

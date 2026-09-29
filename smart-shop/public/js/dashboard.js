@@ -69,7 +69,7 @@ const showDashboard = async () => {
   document.getElementById("dashboard-section").style.display = "block";
 
   // load profile first to get correct vendorType
-  const profileRes = await getVendorProfile(currentUser.id);
+    const profileRes = await getMyVendorProfile();
   if (!profileRes.ok || !profileRes.vendor) {
     showToast(profileRes.message || "Unable to load vendor profile", "error");
     showAuthSection();
@@ -114,7 +114,7 @@ const loadDashboardData = async () => {
         getProducts(),
         getServices(),
         getVendorCollections(currentUser.id),
-        getVendorProfile(currentUser.id),
+        getMyVendorProfile(),
         getJobTitles(),
       ]);
 
@@ -827,15 +827,14 @@ const handleUpdateProfile = async () => {
   const formData = new FormData();
   if (whatsapp) formData.append("whatsapp", whatsapp);
   if (about) formData.append("about", about);
-  if (hours || days)
-    formData.append(
-      "availability",
-      JSON.stringify({
-        workingHours: hours,
-        workingDays: days,
-        isOpen: true,
-      }),
-    );
+    if (hours || days)
+      formData.append(
+        "availability",
+        JSON.stringify({
+          workingHours: hours,
+          workingDays: days,
+        }),
+      );
   if (cert) formData.append("certification", cert);
   if (imageFile) formData.append("profileImage", imageFile);
 
@@ -849,7 +848,11 @@ const handleUpdateProfile = async () => {
 };
 
 // ── Portfolio Upload ─–
+let portfolioUploadInFlight = false;
+
 const handlePortfolioUpload = async () => {
+  if (portfolioUploadInFlight) return;
+
   const files = document.getElementById("portfolio-images").files;
   if (files.length === 0) return showToast("Select images first", "error");
 
@@ -866,13 +869,25 @@ const handlePortfolioUpload = async () => {
     formData.append("images", file);
   }
 
-  const res = await addPortfolioImages(formData);
-  if (res.message) {
-    showToast("Portfolio updated!");
-    document.getElementById("portfolio-images").value = "";
-    await loadDashboardData();
-  } else {
-    showToast(res.message || "Failed to upload", "error");
+  const btn = document.getElementById("portfolio-upload-btn");
+  portfolioUploadInFlight = true;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Uploading…";
+
+  try {
+    const res = await addPortfolioImages(formData);
+    if (res.message) {
+      showToast("Portfolio updated!");
+      document.getElementById("portfolio-images").value = "";
+      await loadDashboardData();
+    } else {
+      showToast(res.message || "Failed to upload", "error");
+    }
+  } finally {
+    portfolioUploadInFlight = false;
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 };
 

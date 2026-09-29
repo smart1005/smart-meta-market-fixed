@@ -200,6 +200,13 @@ const getVendorProfile = async (id) => {
   return handleResponse(res);
 };
 
+const getMyVendorProfile = async () => {
+  const res = await fetch(`${BASE_URL}/vendors/me`, {
+    headers: authHeaders(),
+  });
+  return handleResponse(res);
+};
+
 const updateVendorProfile = async (formData) => {
   const res = await fetch(`${BASE_URL}/vendors/profile`, {
     method: "PUT",
@@ -208,6 +215,8 @@ const updateVendorProfile = async (formData) => {
   });
   return handleResponse(res);
 };
+
+
 
 const addPortfolioImages = async (formData) => {
   const res = await fetch(`${BASE_URL}/vendors/portfolio`, {

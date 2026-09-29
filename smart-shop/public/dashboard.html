@@ -326,20 +326,34 @@
                 placeholder="••••••••"
               />
             </div>
-                        <button class="btn btn-primary w-full" id="login-btn" onclick="handleLogin()">
+            <button
+              class="btn btn-primary w-full"
+              id="login-btn"
+              onclick="handleLogin()"
+            >
               Login
             </button>
 
-                        <div style="text-align:center; margin-top:14px;">
+            <div style="text-align: center; margin-top: 14px">
               <span
                 onclick="handleForgotPassword()"
-                style="color: var(--primary); cursor: pointer; font-size: 0.85rem; font-weight: 600;"
-              >Forgot password?</span>
+                style="
+                  color: var(--primary);
+                  cursor: pointer;
+                  font-size: 0.85rem;
+                  font-weight: 600;
+                "
+                >Forgot password?</span
+              >
             </div>
 
             <div class="auth-switch">
-              <div style="margin-bottom: 12px;">Don't have an account?</div>
-              <button type="button" class="btn btn-outline w-full" onclick="showRegister()">
+              <div style="margin-bottom: 12px">Don't have an account?</div>
+              <button
+                type="button"
+                class="btn btn-outline w-full"
+                onclick="showRegister()"
+              >
                 Register as Vendor
               </button>
             </div>
@@ -428,7 +442,11 @@
                 <option value="">Select State First</option>
               </select>
             </div>
-                        <button class="btn btn-primary w-full" id="register-btn" onclick="handleRegister()">
+            <button
+              class="btn btn-primary w-full"
+              id="register-btn"
+              onclick="handleRegister()"
+            >
               Create Vendor Account
             </button>
 
@@ -732,6 +750,7 @@
             />
             <button
               class="btn btn-outline w-full mt-2"
+              id="portfolio-upload-btn"
               onclick="handlePortfolioUpload()"
             >
               Upload Portfolio
