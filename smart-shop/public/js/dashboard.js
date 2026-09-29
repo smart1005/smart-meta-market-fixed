@@ -274,12 +274,15 @@ const handleRegister = async () => {
       lga,
     });
 
-    if (res.vendorId) {
-      showToast("Account created! Please login.");
-      showLogin();
-    } else {
-      showToast(res.error || res.message || "Registration failed", "error");
-    }
+        if (res.vendorId) {
+          showToast(
+            res.message ||
+              "Account created! Please check your email to verify before logging in.",
+          );
+          showLogin();
+        } else {
+          showToast(res.error || res.message || "Registration failed", "error");
+        }
   } finally {
     registerInFlight = false;
     btn.disabled = false;

@@ -30,6 +30,29 @@ const mapFirebaseAdminErrorCode = (error) => {
  * (it 404s with "User profile not found") and which blocks retrying with
  * the same email (Firebase Auth still reports it as taken).
  */
+const withEmailLock = async (email, fn) => {
+  const lockId = email.trim().toLowerCase();
+  const lockRef = db.collection("emailRegistrationLocks").doc(lockId);
+
+  await db.runTransaction(async (tx) => {
+    const lockSnap = await tx.get(lockRef);
+    if (lockSnap.exists) {
+      const err = new Error("REGISTRATION_IN_PROGRESS");
+      err.code = "REGISTRATION_IN_PROGRESS";
+      throw err;
+    }
+    tx.set(lockRef, { createdAt: new Date() });
+  });
+
+  try {
+    return await fn();
+  } finally {
+    await lockRef.delete().catch((err) =>
+      logger.error({ err, lockId }, "Failed to release email registration lock"),
+    );
+  }
+};
+
 const createUserAtomically = async (authPayload, writeFirestoreDocs) =>
   withEmailLock(authPayload.email, async () => {
     const userRecord = await admin.auth().createUser(authPayload);
