@@ -180,10 +180,11 @@ const loadProductsScroll = async () => {
     container.innerHTML = products
       .map(
         (product) => `
-      <div class="product-card" onclick="window.location='vendor.html?id=${product.vendorId}'">
+            <div class="product-card">
         <img src="${product.imageUrl || "https://via.placeholder.com/160x120/141414/FF6B35?text=No+Image"}" 
-          alt="${product.name}" />
-        <div class="product-card-body">
+          alt="${product.name}"
+          onclick="event.stopPropagation(); openImageLightbox('${product.imageUrl || "https://via.placeholder.com/160x120/141414/FF6B35?text=No+Image"}')" />
+        <div class="product-card-body" onclick="window.location='vendor.html?id=${product.vendorId}'">
           <h4>${product.name}</h4>
           <div class="by">by ${product.vendorName}</div>
           <div class="price">₦${Number(product.price).toLocaleString()}</div>
@@ -211,11 +212,12 @@ const loadFeaturedProducts = async () => {
     grid.innerHTML = products
       .map(
         (product) => `
-      <div class="vendor-card" onclick="window.location='vendor.html?id=${product.vendorId}'">
+            <div class="vendor-card">
         <img class="vendor-card-image"
           src="${product.imageUrl || "https://via.placeholder.com/400x160/141414/FF6B35?text=No+Image"}"
-          alt="${product.name}" />
-        <div class="vendor-card-body">
+          alt="${product.name}"
+          onclick="event.stopPropagation(); openImageLightbox('${product.imageUrl || "https://via.placeholder.com/400x160/141414/FF6B35?text=No+Image"}')" />
+        <div class="vendor-card-body" onclick="window.location='vendor.html?id=${product.vendorId}'">
           <h3>${product.name}</h3>
           <div class="vendor-by">by ${product.vendorName}</div>
           <div class="vendor-card-meta">

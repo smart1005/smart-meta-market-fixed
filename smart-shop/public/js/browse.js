@@ -150,13 +150,14 @@ const renderProducts = (products) => {
   grid.innerHTML = products
     .map(
       (product) => `
-    <div class="vendor-card" onclick="window.location='vendor.html?id=${product.vendorId}'">
+        <div class="vendor-card">
       <img 
         class="vendor-card-image" 
         src="${product.imageUrl || "https://via.placeholder.com/400x160/1a1a1a/FF6B35?text=No+Image"}" 
         alt="${product.name}"
+        onclick="event.stopPropagation(); openImageLightbox('${product.imageUrl || "https://via.placeholder.com/400x160/1a1a1a/FF6B35?text=No+Image"}')"
       />
-      <div class="vendor-card-body">
+      <div class="vendor-card-body" onclick="window.location='vendor.html?id=${product.vendorId}'">
         <h3>${product.name}</h3>
         <p>${product.description || ""}</p>
         <div class="vendor-card-meta">
@@ -190,13 +191,14 @@ const renderServices = (services) => {
   grid.innerHTML = services
     .map(
       (service) => `
-    <div class="vendor-card" onclick="window.location='vendor.html?id=${service.vendorId}'">
+        <div class="vendor-card">
       <img 
         class="vendor-card-image" 
         src="${service.imageUrl || service.imageUrls?.[0] || "https://via.placeholder.com/400x160/1a1a1a/FF6B35?text=No+Image"}" 
         alt="${service.jobTitle || service.title}"
+        onclick="event.stopPropagation(); openImageLightbox('${service.imageUrl || service.imageUrls?.[0] || "https://via.placeholder.com/400x160/1a1a1a/FF6B35?text=No+Image"}')"
       />
-      <div class="vendor-card-body">
+      <div class="vendor-card-body" onclick="window.location='vendor.html?id=${service.vendorId}'">
         <h3>${service.jobTitle || service.title}</h3>
         <p>${service.description || ""}</p>
         <div class="vendor-card-meta">

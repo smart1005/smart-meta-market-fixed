@@ -640,3 +640,61 @@ a {
   text-transform: uppercase;
   margin-bottom: 30px;
 }
+
+/* ── Image Lightbox ── */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 18, 32, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease;
+  padding: 30px;
+}
+
+.lightbox-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.lightbox-overlay img {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  transform: scale(0.9);
+  transition: transform 0.25s ease;
+}
+
+.lightbox-overlay.show img {
+  transform: scale(1);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.vendor-card-image,
+.product-card img,
+.portfolio-grid img,
+.vendor-avatar,
+.product-item img,
+.service-item img {
+  cursor: zoom-in;
+}
+
+.vendor-card-body,
+.product-card-body,
+.product-item-body {
+  cursor: pointer;
+}

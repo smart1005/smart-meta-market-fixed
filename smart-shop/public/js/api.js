@@ -325,6 +325,29 @@ const showToast = (message, type = "success") => {
   }, 3000);
 };
 
+// ── Image Lightbox ──
+const ensureLightbox = () => {
+  if (document.getElementById("image-lightbox")) return;
+  const overlay = document.createElement("div");
+  overlay.id = "image-lightbox";
+  overlay.className = "lightbox-overlay";
+  overlay.innerHTML = `<img id="lightbox-img" src="" alt="" /><span class="lightbox-close">&times;</span>`;
+  overlay.addEventListener("click", closeImageLightbox);
+  document.body.appendChild(overlay);
+};
+
+const openImageLightbox = (url) => {
+  if (!url) return;
+  ensureLightbox();
+  document.getElementById("lightbox-img").src = url;
+  document.getElementById("image-lightbox").classList.add("show");
+};
+
+const closeImageLightbox = () => {
+  const overlay = document.getElementById("image-lightbox");
+  if (overlay) overlay.classList.remove("show");
+};
+
 // ── Logout ──
 const logout = () => {
   removeToken();

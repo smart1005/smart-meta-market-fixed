@@ -39,10 +39,10 @@ const renderVendorPage = (vendor, collections, services) => {
 
   const callLink = vendor.phone ? `tel:${vendor.phone}` : "#";
 
-    page.innerHTML = `
+  page.innerHTML = `
     <!-- Vendor Hero -->
     <div class="vendor-hero">
-      <img class="vendor-avatar" src="${vendor.profileImage || "https://via.placeholder.com/200x200/2F6FFF/ffffff?text=" + vendor.businessName?.charAt(0)}" alt="${vendor.businessName}" />
+            <img class="vendor-avatar" src="${vendor.profileImage || "https://via.placeholder.com/200x200/2F6FFF/ffffff?text=" + vendor.businessName?.charAt(0)}" alt="${vendor.businessName}" onclick="openImageLightbox('${vendor.profileImage || "https://via.placeholder.com/200x200/2F6FFF/ffffff?text=" + vendor.businessName?.charAt(0)}')" />
     </div>
 
     <!-- Vendor Info -->
@@ -204,7 +204,7 @@ const renderPortfolio = (vendor) => {
       ${images
         .map(
           (url) => `
-        <img src="${url}" alt="Portfolio" />
+        <img src="${url}" alt="Portfolio" onclick="openImageLightbox('${url}')" />
       `,
         )
         .join("")}
