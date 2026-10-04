@@ -53,10 +53,12 @@
       }
 
       /* Dashboard */
-      .dashboard-header {
+            .dashboard-header {
         background: var(--card);
         border-bottom: 1px solid var(--border);
-        padding: 16px 20px;
+        padding: 0 20px;
+        height: 64px;
+        box-sizing: border-box;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -71,15 +73,18 @@
         font-size: 1rem;
       }
 
-      .dashboard-nav {
+            .dashboard-nav {
         display: flex;
+        align-items: center;
         overflow-x: auto;
         gap: 8px;
-        padding: 16px 20px;
+        padding: 0 20px;
+        height: 60px;
+        box-sizing: border-box;
         border-bottom: 1px solid var(--border);
         background: var(--card);
         position: fixed;
-        top: 57px;
+        top: 64px;
         left: 0;
         right: 0;
         z-index: 999;
@@ -108,8 +113,8 @@
         border-color: var(--primary);
       }
 
-      .dashboard-content {
-        padding-top: 120px;
+            .dashboard-content {
+        padding-top: 140px;
         padding-bottom: 30px;
         padding-left: 20px;
         padding-right: 20px;

@@ -88,6 +88,37 @@ const initHero = () => {
   });
 };
 
+// ── Pick a diverse, randomized selection across vendors ──
+const pickDiverseRandom = (items, count, vendorKeyFn) => {
+  const groups = {};
+  items.forEach((item) => {
+    const key = vendorKeyFn(item);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+  });
+
+  // shuffle each vendor's own items, and shuffle the vendor order itself
+  const vendorIds = Object.keys(groups).sort(() => Math.random() - 0.5);
+  vendorIds.forEach((id) => groups[id].sort(() => Math.random() - 0.5));
+
+  const result = [];
+  let round = 0;
+  while (result.length < count) {
+    let addedThisRound = false;
+    for (const id of vendorIds) {
+      if (groups[id][round]) {
+        result.push(groups[id][round]);
+        addedThisRound = true;
+        if (result.length === count) break;
+      }
+    }
+    if (!addedThisRound) break; // every vendor's items exhausted
+    round++;
+  }
+
+  return result;
+};
+
 // ── Category Icons ──
 const categoryIcons = {
   Education: "📚",
@@ -148,7 +179,7 @@ const loadServicesScroll = async () => {
       container.innerHTML = "<p class='text-sub'>No services yet</p>";
       return;
     }
-    services = services.sort(() => Math.random() - 0.5).slice(0, 10);
+        services = pickDiverseRandom(services, 10, (s) => s.vendorId);
     container.innerHTML = services
       .map(
         (service) => `
@@ -176,7 +207,7 @@ const loadProductsScroll = async () => {
       container.innerHTML = "<p class='text-sub'>No products yet</p>";
       return;
     }
-    products = products.sort(() => Math.random() - 0.5).slice(0, 10);
+        products = pickDiverseRandom(products, 10, (p) => p.vendorId);
     container.innerHTML = products
       .map(
         (product) => `
@@ -198,21 +229,13 @@ const loadProductsScroll = async () => {
   }
 };
 
-// ── Load Featured Products (big cards) ──
-const loadFeaturedProducts = async () => {
-  const grid = document.getElementById("featured-grid");
-  try {
-    const data = await getProducts();
-    let products = data.products || [];
-    if (products.length === 0) {
-      grid.innerHTML = "<p class='text-sub text-center'>No products yet</p>";
-      return;
-    }
-    products = products.sort(() => Math.random() - 0.5).slice(0, 6);
-    grid.innerHTML = products
-      .map(
-        (product) => `
-            <div class="vendor-card">
+// ── Featured Carousel State ──
+let featuredIndex = 0;
+let featuredTimer = null;
+let featuredPageCount = 0;
+
+const renderFeaturedCard = (product) => `
+      <div class="vendor-card">
         <img class="vendor-card-image"
           src="${product.imageUrl || "https://via.placeholder.com/400x160/141414/FF6B35?text=No+Image"}"
           alt="${product.name}"
@@ -226,9 +249,47 @@ const loadFeaturedProducts = async () => {
           </div>
         </div>
       </div>
-    `,
-      )
-      .join("");
+    `;
+
+const startFeaturedCarousel = (realCount) => {
+  const track = document.getElementById("featured-grid");
+  featuredPageCount = Math.ceil(realCount / 2);
+  featuredIndex = 0;
+  if (featuredTimer) clearInterval(featuredTimer);
+  if (featuredPageCount <= 1) return;
+
+  featuredTimer = setInterval(() => {
+    featuredIndex++;
+    track.style.transition = "transform 0.6s ease";
+    track.style.transform = `translateX(-${featuredIndex * 100}%)`;
+
+    // once we've slid onto the cloned pair, snap silently back to the real start
+    if (featuredIndex === featuredPageCount) {
+      setTimeout(() => {
+        track.style.transition = "none";
+        featuredIndex = 0;
+        track.style.transform = "translateX(0%)";
+      }, 600);
+    }
+  }, 3500);
+};
+
+// ── Load Featured Products (sliding carousel, in twos) ──
+const loadFeaturedProducts = async () => {
+  const grid = document.getElementById("featured-grid");
+  try {
+    const data = await getProducts();
+    let products = data.products || [];
+    if (products.length === 0) {
+      grid.innerHTML = "<p class='text-sub text-center'>No products yet</p>";
+      return;
+    }
+        products = pickDiverseRandom(products, 8, (p) => p.vendorId);
+
+    // duplicate the first pair at the end so the loop feels seamless
+    const loopItems = [...products, ...products.slice(0, 2)];
+    grid.innerHTML = loopItems.map(renderFeaturedCard).join("");
+    startFeaturedCarousel(products.length);
   } catch (error) {
     grid.innerHTML = "<p class='text-sub text-center'>Failed to load</p>";
   }

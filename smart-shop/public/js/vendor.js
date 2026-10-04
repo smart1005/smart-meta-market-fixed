@@ -124,27 +124,34 @@ const renderProductsOrServices = (vendor, services) => {
     if (!services || services.length === 0) {
       return "<p class='text-sub text-center'>No services listed yet</p>";
     }
+    const vendorWhatsapp = vendor.whatsapp || vendor.phone || "";
     return services
-      .map(
-        (service) => `
+      .map((service) => {
+        const title = service.jobTitle || service.title;
+        const enquireLink = vendorWhatsapp
+          ? `https://wa.me/${vendorWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`I'm interested in this service: ${title}`)}`
+          : "";
+        return `
       <div class="service-item">
         ${
           service.imageUrl || service.imageUrls?.[0]
             ? `
-          <img src="${service.imageUrl || service.imageUrls[0]}" alt="${service.jobTitle}" 
-            style="width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;" />
+          <img src="${service.imageUrl || service.imageUrls[0]}" alt="${title}"
+            style="width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; cursor: zoom-in;"
+            onclick="openImageLightbox('${service.imageUrl || service.imageUrls[0]}')" />
         `
             : ""
         }
-        <h4>${service.jobTitle || service.title}</h4>
+        <h4>${title}</h4>
         <p>${service.description || ""}</p>
         ${service.price ? `<p class="text-primary" style="font-weight: 700;">From ₦${Number(service.price).toLocaleString()}</p>` : ""}
         <div class="skills-list">
           ${(service.skills || []).map((skill) => `<span class="skill-tag">${skill}</span>`).join("")}
         </div>
+        ${enquireLink ? `<a href="${enquireLink}" target="_blank" class="enquire-btn">💬 Enquire</a>` : ""}
       </div>
-    `,
-      )
+    `;
+      })
       .join("");
   }
 
@@ -166,27 +173,36 @@ const renderCollections = (collections) => {
     <div class="collection-section">
       <div class="collection-title">📁 ${col.name}</div>
       ${col.description ? `<p style="font-size: 0.85rem; margin-bottom: 12px;">${col.description}</p>` : ""}
-      ${
-        col.products && col.products.length > 0
-          ? `
+            ${
+              col.products && col.products.length > 0
+                ? `
        <div class="product-grid">
           ${col.products
-            .map(
-              (item) => `
+            .map((item) => {
+              const img =
+                item.imageUrl ||
+                "https://via.placeholder.com/200x120/1a1a1a/FF6B35?text=No+Image";
+              const vendorWhatsapp =
+                vendorData?.whatsapp || vendorData?.phone || "";
+              const buyLink = vendorWhatsapp
+                ? `https://wa.me/${vendorWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`I'm interested in buying the ${item.name}`)}`
+                : "";
+              return `
             <div class="product-item">
-              <img src="${item.imageUrl || "https://via.placeholder.com/200x120/1a1a1a/FF6B35?text=No+Image"}" alt="${item.name}" />
+              <img src="${img}" alt="${item.name}" onclick="openImageLightbox('${img}')" />
               <div class="product-item-body">
                 <h4>${item.name}</h4>
                 <p class="price">₦${Number(item.price).toLocaleString()}</p>
+                ${buyLink ? `<a href="${buyLink}" target="_blank" class="buy-btn">🛒 Buy</a>` : ""}
               </div>
             </div>
-          `,
-            )
+          `;
+            })
             .join("")}
         </div>
       `
-          : "<p class='text-sub'>No products in this collection yet</p>"
-      }
+                : "<p class='text-sub'>No products in this collection yet</p>"
+            }
     </div>
   `,
     )
@@ -229,18 +245,27 @@ const loadVendorProducts = async (vendorId) => {
       return;
     }
 
+    const vendorWhatsapp = vendorData?.whatsapp || vendorData?.phone || "";
+
     grid.innerHTML = products
-      .map(
-        (product) => `
+      .map((product) => {
+        const img =
+          product.imageUrl ||
+          "https://via.placeholder.com/200x120/1a1a1a/FF6B35?text=No+Image";
+        const buyLink = vendorWhatsapp
+          ? `https://wa.me/${vendorWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`I'm interested in buying the ${product.name}`)}`
+          : "";
+        return `
       <div class="product-item">
-        <img src="${product.imageUrl || "https://via.placeholder.com/200x120/1a1a1a/FF6B35?text=No+Image"}" alt="${product.name}" />
+        <img src="${img}" alt="${product.name}" onclick="openImageLightbox('${img}')" />
         <div class="product-item-body">
           <h4>${product.name}</h4>
           <p class="price">₦${Number(product.price).toLocaleString()}</p>
+          ${buyLink ? `<a href="${buyLink}" target="_blank" class="buy-btn">🛒 Buy</a>` : ""}
         </div>
       </div>
-    `,
-      )
+    `;
+      })
       .join("");
   } catch (error) {
     if (grid)
