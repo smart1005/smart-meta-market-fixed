@@ -34,7 +34,10 @@ const confirmTransactionMatchesExpectation = (flwData, expectedPlan) => {
     return { ok: false, reason: `Unexpected currency: ${flwData.currency}` };
   }
   if (expectedPlan && Number(flwData.amount) < Number(expectedPlan.amount)) {
-    return { ok: false, reason: `Amount paid (${flwData.amount}) is less than expected (${expectedPlan.amount})` };
+    return {
+      ok: false,
+      reason: `Amount paid (${flwData.amount}) is less than expected (${expectedPlan.amount})`,
+    };
   }
   return { ok: true };
 };
@@ -149,36 +152,33 @@ const initializeSubscription = async (req, res) => {
       },
     );
 
-        const flwData = response?.data?.data;
-        if (!flwData?.link) {
-          logger.error(
-            "Invalid Flutterwave initialize response:",
-            response?.data,
-          );
-          return res.status(502).json({
-            message: "Unable to start payment right now. Please try again.",
-          });
-        }
+    const flwData = response?.data?.data;
+    if (!flwData?.link) {
+      logger.error("Invalid Flutterwave initialize response:", response?.data);
+      return res.status(502).json({
+        message: "Unable to start payment right now. Please try again.",
+      });
+    }
 
-        // record that this payment was started, so an abandoned/failed payment
-        // isn't completely invisible — useful for support/reconciliation later
-        await db
-          .collection("pendingPayments")
-          .doc(txRef)
-          .set({
-            vendorId,
-            plan,
-            amount: selectedPlan.amount,
-            createdAt: admin.firestore.Timestamp.fromDate(new Date()),
-          });
+    // record that this payment was started, so an abandoned/failed payment
+    // isn't completely invisible — useful for support/reconciliation later
+    await db
+      .collection("pendingPayments")
+      .doc(txRef)
+      .set({
+        vendorId,
+        plan,
+        amount: selectedPlan.amount,
+        createdAt: admin.firestore.Timestamp.fromDate(new Date()),
+      });
 
-        res.status(200).json({
-          message: "Subscription payment initialized",
-          paymentUrl: flwData.link,
-          reference: txRef,
-          plan: selectedPlan.label,
-          amount: selectedPlan.amount,
-        });
+    res.status(200).json({
+      message: "Subscription payment initialized",
+      paymentUrl: flwData.link,
+      reference: txRef,
+      plan: selectedPlan.label,
+      amount: selectedPlan.amount,
+    });
   } catch (error) {
     logger.error("Error initializing subscription:", error);
     res.status(500).json({
@@ -209,24 +209,19 @@ const verifySubscription = async (req, res) => {
       });
     }
 
-        const { meta, amount, tx_ref } = flwData;
-        const { vendorId, plan, days } = meta || {};
+    const { meta, amount, tx_ref } = flwData;
+    const { vendorId, plan, days } = meta || {};
 
-        const check = confirmTransactionMatchesExpectation(
-          flwData,
-          PLANS[plan],
-        );
-        if (!check.ok) {
-          logger.error(`Payment verification rejected: ${check.reason}`, {
-            tx_ref,
-            flwData,
-          });
-          return res
-            .status(400)
-            .json({
-              message: "Payment could not be verified. Please contact support.",
-            });
-        }
+    const check = confirmTransactionMatchesExpectation(flwData, PLANS[plan]);
+    if (!check.ok) {
+      logger.error(`Payment verification rejected: ${check.reason}`, {
+        tx_ref,
+        flwData,
+      });
+      return res.status(400).json({
+        message: "Payment could not be verified. Please contact support.",
+      });
+    }
 
     // Security: only let a vendor activate a subscription for their OWN
     // account, even though meta itself comes from our own initialize call
@@ -307,20 +302,20 @@ const callbackSubscription = async (req, res) => {
       },
     );
 
-       const flwData = response?.data?.data;
-       const { meta, amount } = flwData || {};
-       const { vendorId, plan, days } = meta || {};
+    const flwData = response?.data?.data;
+    const { meta, amount } = flwData || {};
+    const { vendorId, plan, days } = meta || {};
 
-       const check = confirmTransactionMatchesExpectation(flwData, PLANS[plan]);
-       if (!flwData || flwData.tx_ref !== tx_ref || !check.ok) {
-         logger.error(
-           `Flutterwave callback verification rejected: ${check.reason || "tx_ref mismatch"}`,
-           { tx_ref, flwData },
-         );
-         return res.redirect(
-           `${process.env.BASE_URL}/dashboard.html?payment=failed`,
-         );
-       }
+    const check = confirmTransactionMatchesExpectation(flwData, PLANS[plan]);
+    if (!flwData || flwData.tx_ref !== tx_ref || !check.ok) {
+      logger.error(
+        `Flutterwave callback verification rejected: ${check.reason || "tx_ref mismatch"}`,
+        { tx_ref, flwData },
+      );
+      return res.redirect(
+        `${process.env.BASE_URL}/dashboard.html?payment=failed`,
+      );
+    }
 
     try {
       await applySubscriptionPayment({
@@ -413,21 +408,18 @@ const flutterwaveWebhook = async (req, res) => {
         },
       );
 
-            const flwData = verifyResponse?.data?.data;
-            const { meta, amount } = flwData || {};
-            const { vendorId, plan, days } = meta || {};
+      const flwData = verifyResponse?.data?.data;
+      const { meta, amount } = flwData || {};
+      const { vendorId, plan, days } = meta || {};
 
-            const check = confirmTransactionMatchesExpectation(
-              flwData,
-              PLANS[plan],
-            );
-            if (!flwData || flwData.tx_ref !== tx_ref || !check.ok) {
-              logger.error(
-                `Flutterwave webhook re-verification rejected: ${check.reason || "tx_ref mismatch"}`,
-                { tx_ref, flwData },
-              );
-              return res.sendStatus(200); // acknowledge receipt regardless
-            }
+      const check = confirmTransactionMatchesExpectation(flwData, PLANS[plan]);
+      if (!flwData || flwData.tx_ref !== tx_ref || !check.ok) {
+        logger.error(
+          `Flutterwave webhook re-verification rejected: ${check.reason || "tx_ref mismatch"}`,
+          { tx_ref, flwData },
+        );
+        return res.sendStatus(200); // acknowledge receipt regardless
+      }
 
       if (!vendorId || !days) {
         logger.error(
@@ -468,4 +460,5 @@ module.exports = {
   verifySubscription,
   callbackSubscription,
   flutterwaveWebhook,
+  applySubscriptionPayment, // exported for testing
 };
