@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = "";
 
 // ── Token Management ──
 const getToken = () => localStorage.getItem("token");

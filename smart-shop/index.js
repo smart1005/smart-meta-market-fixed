@@ -6,10 +6,9 @@ const logger = require("./utils/logger");
 const app = express(); // Create an instance of the Express application
 app.use(
   express.json({
-    // Captures the raw bytes alongside the parsed JSON so the Paystack
-    // webhook route can verify its HMAC signature against the exact
-    // payload Paystack sent (signature checks fail if you verify against
-    // a re-serialized object instead of the original bytes).
+    // Captures the raw bytes alongside the parsed JSON so the Flutterwave
+    // webhook route can verify its signature against the exact payload
+    // Flutterwave sent.
     verify: (req, res, buf) => {
       req.rawBody = buf;
     },

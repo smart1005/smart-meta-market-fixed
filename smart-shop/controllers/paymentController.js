@@ -8,8 +8,8 @@ const FLW_BASE_URL = "https://api.flutterwave.com/v3";
 // subscription plans (amounts are whole Naira — Flutterwave does NOT use
 // kobo/subunits the way Paystack does)
 const PLANS = {
-  monthly: { amount: 5000, days: 30, label: "Monthly" }, // ₦5,000
-  yearly: { amount: 50000, days: 365, label: "Yearly" }, // ₦50,000
+  monthly: { amount: 2000, days: 30, label: "Monthly" }, // ₦2,000
+  yearly: { amount: 20000, days: 365, label: "Yearly" }, // ₦20,000
 };
 
 /**
