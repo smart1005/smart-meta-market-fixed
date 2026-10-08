@@ -18,15 +18,15 @@
   "type": "commonjs",
   "dependencies": {
     "axios": "^1.18.1",
-    "cloudinary": "^2.11.0",
+    "cloudinary": "1.41.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.0",
-    "firebase-admin": "^14.5.0",
+    "firebase-admin": "10.3.0",
     "geofire-common": "^6.0.0",
     "multer": "^2.2.0",
-    "multer-storage-cloudinary": "^2.2.1",
+    "multer-storage-cloudinary": "4.0.0",
     "pino": "^9.14.0",
     "pino-pretty": "^11.3.0",
     "zod": "^4.4.3"
