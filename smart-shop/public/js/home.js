@@ -119,33 +119,13 @@ const pickDiverseRandom = (items, count, vendorKeyFn) => {
   return result;
 };
 
-// ── Category Icons ──
-const categoryIcons = {
-  Education: "📚",
-  Healthcare: "🏥",
-  "Legal & Finance": "⚖️",
-  "Construction & Skilled Trades": "🔨",
-  "Home Services": "🏠",
-  Automotive: "🚗",
-  Technology: "💻",
-  "Beauty & Fashion": "💄",
-  Events: "🎉",
-  "Business Services": "💼",
-  Security: "🔒",
-  Agriculture: "🌾",
-  "Delivery & Transport": "🚚",
-  "Manufacturing & Industrial": "🏭",
-  "Creative Arts": "🎨",
-  "Fitness & Sports": "💪",
-  "Religious & Community": "🙏",
-  "Repair Services": "🔧",
-  "Real Estate": "🏢",
-  "Specialized Services": "⭐",
-};
+const PLACEHOLDER_IMG =
+  "https://via.placeholder.com/400x160/141414/FF6B35?text=No+Image";
 
-// ── Load Categories as Chips ──
+// ── Load Categories as Chips (name only, no emoji) ──
 const loadCategories = async () => {
   const container = document.getElementById("category-chips");
+  if (!container) return;
   try {
     const data = await getJobTitles();
     const categories = data.jobTitles || data.categories || [];
@@ -156,10 +136,10 @@ const loadCategories = async () => {
     container.innerHTML = categories
       .map(
         (cat) => `
-      <div class="category-chip" 
-        onclick="window.location='browse.html?type=services&category=${encodeURIComponent(cat.category)}'">
-        <span>${categoryIcons[cat.category] || "🔹"}</span>
-        <span>${cat.category}</span>
+      <div class="category-chip"
+        data-category="${escapeHtml(cat.category)}"
+        onclick="goToCategory(this.dataset.category)">
+        <span>${escapeHtml(cat.category)}</span>
       </div>
     `,
       )
@@ -169,9 +149,10 @@ const loadCategories = async () => {
   }
 };
 
-// ── Load Services Horizontal Scroll ──
+// ── Featured Services (listing) ──
 const loadServicesScroll = async () => {
   const container = document.getElementById("services-scroll");
+  if (!container) return;
   try {
     const data = await getServices();
     let services = data.services || [];
@@ -179,14 +160,15 @@ const loadServicesScroll = async () => {
       container.innerHTML = "<p class='text-sub'>No services yet</p>";
       return;
     }
-        services = pickDiverseRandom(services, 10, (s) => s.vendorId);
+    services = pickDiverseRandom(services, 10, (s) => s.vendorId);
     container.innerHTML = services
       .map(
         (service) => `
-      <div class="service-card" onclick="window.location='vendor.html?id=${service.vendorId}'">
-        <div class="service-icon">${categoryIcons[service.category] || "🔧"}</div>
-        <h4>${service.jobTitle || service.title}</h4>
-        <div class="by">by ${service.vendorName}</div>
+      <div class="service-card"
+        data-vendor="${escapeHtml(service.vendorId)}"
+        onclick="goToVendor(this.dataset.vendor)">
+        <h4>${escapeHtml(service.jobTitle || service.title)}</h4>
+        <div class="by">by ${escapeHtml(service.vendorName)}</div>
         ${service.price ? `<div style="color: var(--primary); font-weight: 700; font-size: 0.85rem; margin-top: 6px;">From ₦${Number(service.price).toLocaleString()}</div>` : ""}
       </div>
     `,
@@ -197,9 +179,10 @@ const loadServicesScroll = async () => {
   }
 };
 
-// ── Load Products Horizontal Scroll ──
+// ── Featured Products (listing) ──
 const loadProductsScroll = async () => {
   const container = document.getElementById("products-scroll");
+  if (!container) return;
   try {
     const data = await getProducts();
     let products = data.products || [];
@@ -207,93 +190,133 @@ const loadProductsScroll = async () => {
       container.innerHTML = "<p class='text-sub'>No products yet</p>";
       return;
     }
-        products = pickDiverseRandom(products, 10, (p) => p.vendorId);
+    products = pickDiverseRandom(products, 10, (p) => p.vendorId);
     container.innerHTML = products
-      .map(
-        (product) => `
-            <div class="product-card">
-        <img src="${product.imageUrl || "https://via.placeholder.com/160x120/141414/FF6B35?text=No+Image"}" 
-          alt="${product.name}"
-          onclick="event.stopPropagation(); openImageLightbox('${product.imageUrl || "https://via.placeholder.com/160x120/141414/FF6B35?text=No+Image"}')" />
-        <div class="product-card-body" onclick="window.location='vendor.html?id=${product.vendorId}'">
-          <h4>${product.name}</h4>
-          <div class="by">by ${product.vendorName}</div>
+      .map((product) => {
+        const img = product.imageUrl || PLACEHOLDER_IMG;
+        return `
+      <div class="product-card">
+        <img src="${escapeHtml(img)}"
+          alt="${escapeHtml(product.name)}"
+          data-img="${escapeHtml(img)}"
+          onclick="event.stopPropagation(); openImageLightbox(this.dataset.img)" />
+        <div class="product-card-body"
+          data-vendor="${escapeHtml(product.vendorId)}"
+          onclick="goToVendor(this.dataset.vendor)">
+          <h4>${escapeHtml(product.name)}</h4>
+          <div class="by">by ${escapeHtml(product.vendorName)}</div>
           <div class="price">₦${Number(product.price).toLocaleString()}</div>
         </div>
       </div>
-    `,
-      )
+    `;
+      })
       .join("");
   } catch (error) {
     container.innerHTML = "<p class='text-sub'>Failed to load</p>";
   }
 };
 
-// ── Featured Carousel State ──
-let featuredIndex = 0;
-let featuredTimer = null;
-let featuredPageCount = 0;
 
-const renderFeaturedCard = (product) => `
+// ── Top Picks: constant, slow, right-to-left slide ──
+const renderTopProductCard = (product) => {
+  const img = product.imageUrl || PLACEHOLDER_IMG;
+  return `
+    <div class="marquee-item">
       <div class="vendor-card">
         <img class="vendor-card-image"
-          src="${product.imageUrl || "https://via.placeholder.com/400x160/141414/FF6B35?text=No+Image"}"
-          alt="${product.name}"
-          onclick="event.stopPropagation(); openImageLightbox('${product.imageUrl || "https://via.placeholder.com/400x160/141414/FF6B35?text=No+Image"}')" />
-        <div class="vendor-card-body" onclick="window.location='vendor.html?id=${product.vendorId}'">
-          <h3>${product.name}</h3>
-          <div class="vendor-by">by ${product.vendorName}</div>
+          src="${escapeHtml(img)}"
+          alt="${escapeHtml(product.name)}"
+          data-img="${escapeHtml(img)}"
+          onclick="event.stopPropagation(); openImageLightbox(this.dataset.img)" />
+        <div class="vendor-card-body"
+          data-vendor="${escapeHtml(product.vendorId)}"
+          onclick="goToVendor(this.dataset.vendor)">
+          <h3>${escapeHtml(product.name)}</h3>
+          <div class="vendor-by">by ${escapeHtml(product.vendorName)}</div>
           <div class="vendor-card-meta">
             <span class="vendor-type-badge">₦${Number(product.price).toLocaleString()}</span>
-            <span class="vendor-location">${product.category || ""}</span>
+            <span class="vendor-location">${escapeHtml(product.category || "")}</span>
           </div>
         </div>
       </div>
-    `;
-
-const startFeaturedCarousel = (realCount) => {
-  const track = document.getElementById("featured-grid");
-  featuredPageCount = Math.ceil(realCount / 2);
-  featuredIndex = 0;
-  if (featuredTimer) clearInterval(featuredTimer);
-  if (featuredPageCount <= 1) return;
-
-  featuredTimer = setInterval(() => {
-    featuredIndex++;
-    track.style.transition = "transform 0.6s ease";
-    track.style.transform = `translateX(-${featuredIndex * 100}%)`;
-
-    // once we've slid onto the cloned pair, snap silently back to the real start
-    if (featuredIndex === featuredPageCount) {
-      setTimeout(() => {
-        track.style.transition = "none";
-        featuredIndex = 0;
-        track.style.transform = "translateX(0%)";
-      }, 600);
-    }
-  }, 3500);
+    </div>
+  `;
 };
 
-// ── Load Featured Products (sliding carousel, in twos) ──
-const loadFeaturedProducts = async () => {
-  const grid = document.getElementById("featured-grid");
+const renderTopServiceCard = (service) => {
+  const img = service.imageUrl || service.imageUrls?.[0] || PLACEHOLDER_IMG;
+  return `
+    <div class="marquee-item">
+      <div class="vendor-card">
+        <img class="vendor-card-image"
+          src="${escapeHtml(img)}"
+          alt="${escapeHtml(service.jobTitle || service.title)}"
+          data-img="${escapeHtml(img)}"
+          onclick="event.stopPropagation(); openImageLightbox(this.dataset.img)" />
+        <div class="vendor-card-body"
+          data-vendor="${escapeHtml(service.vendorId)}"
+          onclick="goToVendor(this.dataset.vendor)">
+          <h3>${escapeHtml(service.jobTitle || service.title)}</h3>
+          <div class="vendor-by">by ${escapeHtml(service.vendorName)}</div>
+          <div class="vendor-card-meta">
+            <span class="vendor-type-badge">${escapeHtml(service.category || "Service")}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// Fills a track with cards twice over, so the CSS animation can slide
+// exactly half the track and loop with no visible jump.
+const buildMarquee = (track, items, renderFn, secondsPerItem = 3) => {
+  // too few items to loop nicely: just show them still
+  if (items.length < 4) {
+    track.classList.add("marquee-static");
+    track.innerHTML = items.map(renderFn).join("");
+    return;
+  }
+  let half = [...items];
+  while (half.length < 8) half = half.concat(items);
+  track.classList.remove("marquee-static");
+  track.style.animationDuration = `${half.length * secondsPerItem}s`;
+  track.innerHTML = [...half, ...half].map(renderFn).join("");
+};
+
+const loadTopProducts = async () => {
+  const track = document.getElementById("top-products-track");
+  if (!track) return;
   try {
     const data = await getProducts();
     let products = data.products || [];
     if (products.length === 0) {
-      grid.innerHTML = "<p class='text-sub text-center'>No products yet</p>";
+      track.innerHTML = "<p class='text-sub text-center'>No products yet</p>";
       return;
     }
-        products = pickDiverseRandom(products, 8, (p) => p.vendorId);
-
-    // duplicate the first pair at the end so the loop feels seamless
-    const loopItems = [...products, ...products.slice(0, 2)];
-    grid.innerHTML = loopItems.map(renderFeaturedCard).join("");
-    startFeaturedCarousel(products.length);
+    products = pickDiverseRandom(products, 8, (p) => p.vendorId);
+    buildMarquee(track, products, renderTopProductCard);
   } catch (error) {
-    grid.innerHTML = "<p class='text-sub text-center'>Failed to load</p>";
+    track.innerHTML = "<p class='text-sub text-center'>Failed to load</p>";
   }
 };
+
+const loadTopServices = async () => {
+  const track = document.getElementById("top-services-track");
+  if (!track) return;
+  try {
+    const data = await getServices();
+    let services = data.services || [];
+    if (services.length === 0) {
+      track.innerHTML = "<p class='text-sub text-center'>No services yet</p>";
+      return;
+    }
+    services = pickDiverseRandom(services, 8, (s) => s.vendorId);
+    buildMarquee(track, services, renderTopServiceCard);
+  } catch (error) {
+    track.innerHTML = "<p class='text-sub text-center'>Failed to load</p>";
+  }
+};
+
 
 // ── Search ──
 const searchProducts = () => {
@@ -322,5 +345,6 @@ document.addEventListener("DOMContentLoaded", () => {
   loadCategories();
   loadServicesScroll();
   loadProductsScroll();
-  loadFeaturedProducts();
+  loadTopProducts();
+  loadTopServices();
 });

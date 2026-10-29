@@ -2,6 +2,8 @@ const axios = require("axios");
 const logger = require("../utils/logger");
 const { db, admin } = require("../config/firebase");
 const { buildLocationData } = require("../utils/LocationLookup");
+const { buildTrialSubscription } = require("../utils/subscription");
+const { normalizeNgPhone } = require("../utils/phone");
 
 // Maps common Firebase Admin SDK error codes to friendly, safe messages.
 // Returns null for anything unrecognized so the caller falls back to a
@@ -47,9 +49,14 @@ const withEmailLock = async (email, fn) => {
   try {
     return await fn();
   } finally {
-    await lockRef.delete().catch((err) =>
-      logger.error({ err, lockId }, "Failed to release email registration lock"),
-    );
+    await lockRef
+      .delete()
+      .catch((err) =>
+        logger.error(
+          { err, lockId },
+          "Failed to release email registration lock",
+        ),
+      );
   }
 };
 
@@ -311,62 +318,97 @@ const registerVendor = async (req, res) => {
         .json({ message: "Email and password are required." });
     }
 
-    if (!businessName) {
-      return res.status(400).json({
-        message: "Business name is required.",
-      });
+    // name = private full name; displayName = what the public sees
+    const displayName = (req.body.displayName || "").trim() || name;
+
+    const normalizedPhone = normalizeNgPhone(phone);
+    if (!normalizedPhone) {
+      return res
+        .status(400)
+        .json({ message: "Enter a valid Nigerian phone number." });
     }
 
-    if (!vendorType || !["product", "service"].includes(vendorType)) {
+    const wantsVendorProfile = Boolean(vendorType);
+
+    if (wantsVendorProfile && !businessName) {
+      return res.status(400).json({ message: "Business name is required." });
+    }
+
+    if (wantsVendorProfile && !["product", "service"].includes(vendorType)) {
       return res.status(400).json({
         message: "vendorType must be 'product' or 'service'.",
       });
     }
 
-    if (!state || !lga) {
-      return res.status(400).json({
-        message: "State and LGA are required.",
-      });
+    if (wantsVendorProfile && (!state || !lga)) {
+      return res.status(400).json({ message: "State and LGA are required." });
     }
 
-    const locationData = buildLocationData(state, lga);
+    const locationData = wantsVendorProfile
+      ? buildLocationData(state, lga)
+      : null;
 
-    if (!locationData) {
+    if (wantsVendorProfile && !locationData) {
       return res.status(400).json({
         message:
           "Invalid state/LGA combination. Please select from the provided list.",
       });
     }
 
-    const expiryDate = new Date(
-      Date.now() + 30 * 24 * 60 * 60 * 1000,
-    );
-
     const nowTimestamp = admin.firestore.Timestamp.fromDate(new Date());
+    const trial = buildTrialSubscription();
 
     const userRecord = await createUserAtomically(
-      { email, password, displayName: businessName },
+      { email, password, displayName: displayName || businessName },
       async (record) => {
-        await db.collection("users").doc(record.uid).set({
-          name,
-          email,
-          phone,
-          role: "vendor",
-          createdAt: nowTimestamp,
-        });
-
-        await db
-          .collection("vendorProfiles")
-          .doc(record.uid)
-          .set({
-            businessName,
-            vendorType,
-            location: locationData,
-            subscriptionStatus: "active",
-            subscriptionExpiry:
-              admin.firestore.Timestamp.fromDate(expiryDate),
+        // 1) Claim the phone number first. create() fails if it already exists,
+        //    so two sign-ups at the same moment can't both win.
+        const lockRef = db
+          .collection("phoneRegistrationLocks")
+          .doc(normalizedPhone);
+        try {
+          await lockRef.create({
+            uid: record.uid,
             createdAt: nowTimestamp,
           });
+        } catch (lockError) {
+          if (lockError.code === 6) {
+            const inUse = new Error("PHONE_IN_USE");
+            inUse.code = "PHONE_IN_USE";
+            throw inUse;
+          }
+          throw lockError;
+        }
+
+        // 2) Write the account. If this fails, release the phone number.
+        try {
+          await db
+            .collection("users")
+            .doc(record.uid)
+            .set({
+              name,
+              displayName,
+              email,
+              phone,
+              phoneNormalized: normalizedPhone,
+              role: "user",
+              ...trial,
+              createdAt: nowTimestamp,
+            });
+
+          if (wantsVendorProfile) {
+            await db.collection("vendorProfiles").doc(record.uid).set({
+              businessName,
+              vendorType,
+              location: locationData,
+              visibleUntil: trial.subscriptionExpiry,
+              createdAt: nowTimestamp,
+            });
+          }
+        } catch (writeError) {
+          await lockRef.delete().catch(() => {});
+          throw writeError;
+        }
       },
     );
 
@@ -378,50 +420,47 @@ const registerVendor = async (req, res) => {
 
         return res.status(201).json({
           message:
-            "Vendor account created successfully, but we couldn't send a verification email. Please contact support to verify your account.",
+            "User account created successfully, but we couldn't send a verification email. Please contact support to verify your account.",
           vendorId: userRecord.uid,
         });
       }
 
       const signInRes = await axios.post(
         `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
-        {
-          email,
-          password,
-          returnSecureToken: true,
-        },
+        { email, password, returnSecureToken: true },
       );
 
       await axios.post(
         `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`,
-        {
-          requestType: "VERIFY_EMAIL",
-          idToken: signInRes.data.idToken,
-        },
+        { requestType: "VERIFY_EMAIL", idToken: signInRes.data.idToken },
       );
 
       return res.status(201).json({
         message:
-          "Vendor account created successfully. Please check your email to verify your account before logging in.",
+          "User account created successfully. Please check your email to verify your account before logging in.",
         vendorId: userRecord.uid,
       });
     } catch (verificationError) {
       logger.error(
         {
-          err:
-            verificationError.response?.data ||
-            verificationError.message,
+          err: verificationError.response?.data || verificationError.message,
         },
-        "Vendor account created but verification email failed to send",
+        "User account created but verification email failed to send",
       );
 
       return res.status(201).json({
         message:
-          "Vendor account created successfully, but we couldn't send a verification email. Please contact support to verify your account.",
+          "User account created successfully, but we couldn't send a verification email. Please contact support to verify your account.",
         vendorId: userRecord.uid,
       });
     }
   } catch (error) {
+    if (error.code === "PHONE_IN_USE") {
+      return res.status(409).json({
+        message: "This phone number is already registered to another account.",
+      });
+    }
+
     if (error.code === "REGISTRATION_IN_PROGRESS") {
       return res.status(409).json({
         message:
@@ -429,14 +468,14 @@ const registerVendor = async (req, res) => {
       });
     }
 
-    logger.error({ err: error }, "Error creating vendor account");
+    logger.error({ err: error }, "Error creating user account");
 
     const friendly = mapFirebaseAdminErrorCode(error);
 
     res.status(friendly ? 400 : 500).json({
       message:
         friendly ||
-        "Something went wrong creating your vendor account. Please try again.",
+        "Something went wrong creating your user account. Please try again.",
     });
   }
 };
@@ -523,9 +562,7 @@ const forgotPassword = async (req, res) => {
   } catch (error) {
     logger.error(
       {
-        err:
-          error.response?.data ||
-          error.message,
+        err: error.response?.data || error.message,
       },
       "Error sending password reset email",
     );

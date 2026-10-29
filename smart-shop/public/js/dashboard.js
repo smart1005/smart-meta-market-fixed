@@ -69,7 +69,7 @@ const showDashboard = async () => {
   document.getElementById("dashboard-section").style.display = "block";
 
   // load profile first to get correct vendorType
-    const profileRes = await getMyVendorProfile();
+  const profileRes = await getMyVendorProfile();
   if (!profileRes.ok || !profileRes.vendor) {
     showToast(profileRes.message || "Unable to load vendor profile", "error");
     showAuthSection();
@@ -240,20 +240,20 @@ let registerInFlight = false;
 const handleRegister = async () => {
   if (registerInFlight) return;
   const name = document.getElementById("reg-name").value.trim();
-  const businessName = document.getElementById("reg-business").value.trim();
   const email = document.getElementById("reg-email").value.trim();
+  const displayName = document.getElementById("reg-display").value.trim();
   const phone = document.getElementById("reg-phone").value.trim();
   const password = document.getElementById("reg-password").value.trim();
-  const vendorType = document.getElementById("reg-type").value;
-  const state = document.getElementById("reg-state").value;
-  const lga = document.getElementById("reg-lga").value;
+  const passwordConfirm = document
+    .getElementById("reg-password-confirm")
+    .value.trim();
 
-  if (!name || !businessName || !email || !phone || !password) {
+  if (!name || !displayName || !email || !phone || !password) {
     return showToast("Fill in all required fields", "error");
   }
 
-  if (!state || !lga) {
-    return showToast("Select your state and LGA", "error");
+  if (password !== passwordConfirm) {
+    return showToast("Passwords do not match", "error");
   }
 
   const btn = document.getElementById("register-btn");
@@ -264,25 +264,22 @@ const handleRegister = async () => {
 
   try {
     const res = await registerVendor({
+      displayName,
       name,
-      businessName,
       email,
       phone,
       password,
-      vendorType,
-      state,
-      lga,
     });
 
-        if (res.vendorId) {
-          showToast(
-            res.message ||
-              "Account created! Please check your email to verify before logging in.",
-          );
-          showLogin();
-        } else {
-          showToast(res.error || res.message || "Registration failed", "error");
-        }
+    if (res.vendorId) {
+      showToast(
+        res.message ||
+          "Account created! Please check your email to verify before logging in.",
+      );
+      showLogin();
+    } else {
+      showToast(res.error || res.message || "Registration failed", "error");
+    }
   } finally {
     registerInFlight = false;
     btn.disabled = false;
@@ -830,14 +827,14 @@ const handleUpdateProfile = async () => {
   const formData = new FormData();
   if (whatsapp) formData.append("whatsapp", whatsapp);
   if (about) formData.append("about", about);
-    if (hours || days)
-      formData.append(
-        "availability",
-        JSON.stringify({
-          workingHours: hours,
-          workingDays: days,
-        }),
-      );
+  if (hours || days)
+    formData.append(
+      "availability",
+      JSON.stringify({
+        workingHours: hours,
+        workingDays: days,
+      }),
+    );
   if (cert) formData.append("certification", cert);
   if (imageFile) formData.append("profileImage", imageFile);
 
@@ -1022,7 +1019,6 @@ const handleSubscribe = async (plan) => {
 // ── Init ──
 document.addEventListener("DOMContentLoaded", async () => {
   await loadStates();
-  populateStateSelect("reg-state");
   populateStateSelect("location-state");
   checkAuth();
 });

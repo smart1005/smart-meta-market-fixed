@@ -14,16 +14,26 @@ const loginSchema = z.object({
 });
 
 const registerVendorSchema = z.object({
+
   email: z.string().email("Please enter a valid email address."),
   password: z.string().min(6, "Password must be at least 6 characters."),
   name: z.string().trim().optional(),
+  displayName: z.string().trim().min(2).max(20).optional(),
   phone: z.string().trim().min(1, "Phone number is required."),
-  businessName: z.string().trim().min(1, "Business name is required."),
-  vendorType: z.enum(["product", "service"], {
-    errorMap: () => ({ message: "vendorType must be 'product' or 'service'." }),
-  }),
-  state: z.string().trim().min(1, "State is required."),
-  lga: z.string().trim().min(1, "LGA is required."),
+  businessName: z
+    .string()
+    .trim()
+    .min(1, "Business name is required.")
+    .optional(),
+  vendorType: z
+    .enum(["product", "service"], {
+      errorMap: () => ({
+        message: "vendorType must be 'product' or 'service'.",
+      }),
+    })
+    .optional(),
+  state: z.string().trim().min(1, "State is required.").optional(),
+  lga: z.string().trim().min(1, "LGA is required.").optional(),
 });
 
 const createAdminSchema = z.object({

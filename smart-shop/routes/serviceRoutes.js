@@ -22,7 +22,7 @@ router.get("/:id", asyncHandler(getServiceById));
 router.post(
   "/",
   protect,
-  restrictTo("vendor"),
+  restrictTo("serviceVendor"),
   checkSubscription,
   uploadService.fields([
     { name: "images", maxCount: 10 },
@@ -34,7 +34,7 @@ router.post(
 router.put(
   "/:id",
   protect,
-  restrictTo("vendor"),
+  restrictTo("serviceVendor"),
   checkSubscription,
   uploadService.fields([
     { name: "images", maxCount: 10 },
@@ -46,7 +46,7 @@ router.put(
 router.delete(
   "/:id",
   protect,
-  restrictTo("vendor", "admin", "superAdmin"),
+  restrictTo("serviceVendor", "admin", "superAdmin"),
   asyncHandler(deleteService),
 );
 

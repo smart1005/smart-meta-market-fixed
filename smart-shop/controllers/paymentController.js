@@ -2,14 +2,15 @@ const axios = require("axios");
 const crypto = require("crypto");
 const logger = require("../utils/logger");
 const { db, admin } = require("../config/firebase");
+const { syncOwnerVisibilityFromAccount } = require("../utils/visibility");
 
 const FLW_BASE_URL = "https://api.flutterwave.com/v3";
 
 // subscription plans (amounts are whole Naira — Flutterwave does NOT use
 // kobo/subunits the way Paystack does)
 const PLANS = {
-  monthly: { amount: 2000, days: 30, label: "Monthly" }, // ₦2,000
-  yearly: { amount: 20000, days: 365, label: "Yearly" }, // ₦20,000
+  monthly: { amount: 1000, days: 30, label: "Monthly" }, // ₦1,000
+  yearly: { amount: 10000, days: 365, label: "Yearly" }, // ₦10,000
 };
 
 /**
@@ -63,7 +64,7 @@ const applySubscriptionPayment = async ({
   amount,
   txRef,
 }) => {
-  return db.runTransaction(async (tx) => {
+  const result = await db.runTransaction(async (tx) => {
     const paymentRef = db.collection("processedPayments").doc(txRef);
     const paymentSnap = await tx.get(paymentRef);
 
@@ -71,7 +72,7 @@ const applySubscriptionPayment = async ({
       return { alreadyProcessed: true, newExpiry: null };
     }
 
-    const vendorRef = db.collection("vendorProfiles").doc(vendorId);
+    const vendorRef = db.collection("users").doc(vendorId);
     const vendorSnap = await tx.get(vendorRef);
     if (!vendorSnap.exists) {
       const err = new Error("VENDOR_NOT_FOUND");
@@ -113,6 +114,16 @@ const applySubscriptionPayment = async ({
 
     return { alreadyProcessed: false, newExpiry };
   });
+
+  // Refresh visibility of everything this user owns. Runs even for repeated
+  // webhooks (alreadyProcessed), so a failed sync is repaired on retry.
+  try {
+    await syncOwnerVisibilityFromAccount(vendorId);
+  } catch (err) {
+    logger.error({ err, vendorId }, "Visibility sync failed after payment");
+  }
+
+  return result;
 };
 
 const initializeSubscription = async (req, res) => {
@@ -461,4 +472,5 @@ module.exports = {
   callbackSubscription,
   flutterwaveWebhook,
   applySubscriptionPayment, // exported for testing
+  syncOwnerVisibilityFromAccount,
 };

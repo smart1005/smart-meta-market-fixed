@@ -2,7 +2,7 @@ const { db } = require("../config/firebase");
 const logger = require("../utils/logger");
 const cloudinary = require("cloudinary").v2;
 const { validateServicePayload } = require("../utils/validators");
-const { filterGenuinelyActive } = require("../utils/vendorSubscription");
+const { visibleUntilFor } = require("../utils/visibility");
 
 const extractPublicIdFromUrl = (url) => {
   if (!url || typeof url !== "string") return null;
@@ -121,6 +121,13 @@ const addService = async (req, res) => {
       serviceData.price = Number(price);
     }
 
+    const profileSnap = await db
+      .collection("vendorProfiles")
+      .doc(req.user.id)
+      .get();
+    serviceData.visibleUntil = visibleUntilFor(req.user);
+    serviceData.vendorLocation = profileSnap.data()?.location || null;
+
     const serviceRef = await db.collection("services").add(serviceData);
 
     res.status(201).json({
@@ -137,45 +144,42 @@ const addService = async (req, res) => {
 
 const getServices = async (req, res) => {
   try {
-    const { category, vendorId } = req.query;
+    const { category, vendorId, cursor } = req.query;
+    // default is high for now so the current browse page keeps working;
+    // lower it to 24 when the frontend gets a "load more" button
+    const pageSize = Math.min(parseInt(req.query.limit, 10) || 200, 200);
     let query = db.collection("services");
 
     if (category) query = query.where("category", "==", category);
-    if (vendorId) query = query.where("vendorId", "==", vendorId);
 
-    const snapshot = await query.get();
-    let services = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    if (vendorId) {
+      // a vendor's own list (dashboard/storefront): no visibility filter
+      query = query.where("vendorId", "==", vendorId);
+    } else {
+      // public browse: only listings whose owner is subscribed, paginated
+      query = query
+        .where("visibleUntil", ">", new Date())
+        .orderBy("visibleUntil", "desc")
+        .limit(pageSize + 1);
 
-    // filter out services from inactive vendors, and attach vendor location
-    if (!vendorId) {
-      const vendorsSnapshot = await db
-        .collection("vendorProfiles")
-        .where("subscriptionStatus", "==", "active")
-        .get();
-
-            const genuinelyActiveDocs = filterGenuinelyActive(
-              vendorsSnapshot.docs,
-            );
-
-            const activeVendorLocations = new Map(
-              genuinelyActiveDocs.map((doc) => [
-                doc.id,
-                doc.data().location || null,
-              ]),
-            );
-            
-      services = services
-        .filter((s) => activeVendorLocations.has(s.vendorId))
-        .map((s) => ({
-          ...s,
-          vendorLocation: activeVendorLocations.get(s.vendorId),
-        }));
+      if (cursor) {
+        const cursorDoc = await db.collection("services").doc(cursor).get();
+        if (cursorDoc.exists) query = query.startAfter(cursorDoc);
+      }
     }
 
-    res.status(200).json({ services });
+    const snapshot = await query.get();
+    let docs = snapshot.docs;
+    let nextCursor = null;
+
+    if (!vendorId && docs.length > pageSize) {
+      docs = docs.slice(0, pageSize);
+      nextCursor = docs[docs.length - 1].id;
+    }
+
+    const services = docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    res.status(200).json({ services, nextCursor });
   } catch (error) {
     logger.error("Error fetching services:", error);
     res.status(500).json({
@@ -211,7 +215,10 @@ const updateService = async (req, res) => {
 
     const service = serviceDoc.data();
 
-    if (req.user.role === "vendor" && service.vendorId !== req.user.id) {
+    if (
+      !["admin", "superAdmin"].includes(req.user.role) &&
+      service.vendorId !== req.user.id
+    ) {
       return res
         .status(403)
         .json({ message: "You can only update your own services" });
@@ -271,7 +278,10 @@ const deleteService = async (req, res) => {
     }
 
     const service = serviceDoc.data();
-    if (req.user.role === "vendor" && service.vendorId !== req.user.id) {
+    if (
+      !["admin", "superAdmin"].includes(req.user.role) &&
+      service.vendorId !== req.user.id
+    ) {
       return res
         .status(403)
         .json({ message: "You can only delete your own services" });
@@ -279,7 +289,7 @@ const deleteService = async (req, res) => {
 
     // clean up images from Cloudinary
     if (Array.isArray(service.imageUrls) && service.imageUrls.length > 0) {
-      Promise.all(
+      await Promise.all(
         service.imageUrls.map((url) =>
           deleteCloudinaryImage(extractPublicIdFromUrl(url)),
         ),
@@ -319,4 +329,5 @@ module.exports = {
   updateService,
   deleteService,
   getJobTitles,
+  visibleUntilFor,
 };

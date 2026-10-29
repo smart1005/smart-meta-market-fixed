@@ -1,4 +1,4 @@
-const BASE_URL = "";
+const BASE_URL = "http://localhost:3000/api"; // Change this to your actual API base URL
 
 // ── Token Management ──
 const getToken = () => localStorage.getItem("token");
@@ -355,6 +355,26 @@ const logout = () => {
   window.location.href = "index.html";
 };
 
+// ── Escape vendor-typed text before putting it into HTML ──
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+// ── Safe navigation helpers (used with data-* attributes) ──
+const goToVendor = (id) => {
+  window.location.href = `vendor.html?id=${encodeURIComponent(id)}`;
+};
+
+const goToCategory = (category) => {
+  window.location.href = `browse.html?type=services&category=${encodeURIComponent(category)}`;
+};
+
 // expose a few utilities to the global scope for inline handlers
 window.logout = logout;
 window.showToast = showToast;
+window.goToVendor = goToVendor;
+window.goToCategory = goToCategory;

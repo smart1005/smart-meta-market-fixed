@@ -12,13 +12,13 @@ const {
 router.post(
   "/subscribe",
   protect,
-  restrictTo("vendor"),
+  restrictTo("user"),
   asyncHandler(initializeSubscription),
 );
 router.get(
   "/verify/:reference",
   protect,
-  restrictTo("vendor"),
+  restrictTo("user"),
   asyncHandler(verifySubscription),
 );
 router.get("/callback", asyncHandler(callbackSubscription)); // This route is for Flutterwave's redirect after payment completion

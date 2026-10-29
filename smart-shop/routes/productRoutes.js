@@ -18,7 +18,7 @@ const {
 router.post(
   "/",
   protect,
-  restrictTo("vendor"),
+  restrictTo("productVendor"),
   checkSubscription,
   uploadProduct.fields([
     { name: "image", maxCount: 1 },
@@ -31,7 +31,7 @@ router.get("/:id", asyncHandler(getProductById));
 router.put(
   "/:id",
   protect,
-  restrictTo("vendor"),
+  restrictTo("productVendor"),
   checkSubscription,
   uploadProduct.fields([
     { name: "image", maxCount: 1 },
@@ -43,7 +43,7 @@ router.put(
 router.delete(
   "/:id",
   protect,
-  restrictTo("admin", "superAdmin", "vendor"),
+  restrictTo("admin", "superAdmin", "productVendor"),
   checkSubscription,
   asyncHandler(deleteProduct),
 );

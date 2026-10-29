@@ -2,7 +2,7 @@ const { db } = require("../config/firebase");
 const logger = require("../utils/logger");
 const cloudinary = require("cloudinary").v2;
 const { validateProductPayload } = require("../utils/validators");
-const { filterGenuinelyActive } = require("../utils/vendorSubscription");
+const { visibleUntilFor } = require("../utils/visibility");
 const MAX_COLLECTIONS_PER_VENDOR = 15;
 
 const extractPublicIdFromUrl = (url) => {
@@ -139,7 +139,14 @@ const addProduct = async (req, res) => {
     const imageUrls = getUploadedImageUrls(req);
     const imageUrl = imageUrls[0] || null;
 
+    const profileSnap = await db
+      .collection("vendorProfiles")
+      .doc(req.user.id)
+      .get();
+
     const productRef = await db.collection("products").add({
+      visibleUntil: visibleUntilFor(req.user),
+      vendorLocation: profileSnap.data()?.location || null,
       name,
       price: normalizedPrice,
       description: description ?? "",
@@ -168,45 +175,42 @@ const addProduct = async (req, res) => {
 
 const getProducts = async (req, res) => {
   try {
-    const { category, vendorId } = req.query;
+    const { category, vendorId, cursor } = req.query;
+    // default is high for now so the current browse page keeps working;
+    // lower it to 24 when the frontend gets a "load more" button
+    const pageSize = Math.min(parseInt(req.query.limit, 10) || 200, 200);
     let query = db.collection("products");
 
     if (category) query = query.where("category", "==", category);
-    if (vendorId) query = query.where("vendorId", "==", vendorId);
 
-    const snapshot = await query.get();
-    let products = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    if (vendorId) {
+      // a vendor's own list (dashboard/storefront): no visibility filter
+      query = query.where("vendorId", "==", vendorId);
+    } else {
+      // public browse: only listings whose owner is subscribed, paginated
+      query = query
+        .where("visibleUntil", ">", new Date())
+        .orderBy("visibleUntil", "desc")
+        .limit(pageSize + 1);
 
-    // filter out products from inactive vendors, and attach vendor location
-    if (!vendorId) {
-      const vendorsSnapshot = await db
-        .collection("vendorProfiles")
-        .where("subscriptionStatus", "==", "active")
-        .get();
-
-            const genuinelyActiveDocs = filterGenuinelyActive(
-              vendorsSnapshot.docs,
-            );
-
-            const activeVendorLocations = new Map(
-              genuinelyActiveDocs.map((doc) => [
-                doc.id,
-                doc.data().location || null,
-              ]),
-            );
-
-      products = products
-        .filter((p) => activeVendorLocations.has(p.vendorId))
-        .map((p) => ({
-          ...p,
-          vendorLocation: activeVendorLocations.get(p.vendorId),
-        }));
+      if (cursor) {
+        const cursorDoc = await db.collection("products").doc(cursor).get();
+        if (cursorDoc.exists) query = query.startAfter(cursorDoc);
+      }
     }
 
-    res.status(200).json({ products });
+    const snapshot = await query.get();
+    let docs = snapshot.docs;
+    let nextCursor = null;
+
+    if (!vendorId && docs.length > pageSize) {
+      docs = docs.slice(0, pageSize);
+      nextCursor = docs[docs.length - 1].id;
+    }
+
+    const products = docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    res.status(200).json({ products, nextCursor });
   } catch (error) {
     logger.error("Error fetching products:", error);
     res.status(500).json({
@@ -239,7 +243,10 @@ const updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
     const product = productDoc.data();
-    if (req.user.role === "vendor" && product.vendorId !== req.user.id) {
+    if (
+      !["admin", "superAdmin"].includes(req.user.role) &&
+      product.vendorId !== req.user.id
+    ) {
       return res
         .status(403)
         .json({ message: "You can only update your own products" });
@@ -255,7 +262,7 @@ const updateProduct = async (req, res) => {
       const oldImageUrls =
         product.imageUrls || (product.imageUrl ? [product.imageUrl] : []);
       if (oldImageUrls.length > 0) {
-        Promise.all(
+        await Promise.all(
           oldImageUrls.map((url) =>
             deleteCloudinaryImage(extractPublicIdFromUrl(url)),
           ),
@@ -316,7 +323,10 @@ const deleteProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
     const product = productDoc.data();
-    if (req.user.role === "vendor" && product.vendorId !== req.user.id) {
+    if (
+      !["admin", "superAdmin"].includes(req.user.role) &&
+      product.vendorId !== req.user.id
+    ) {
       return res
         .status(403)
         .json({ message: "You can only delete your own products" });
@@ -325,7 +335,7 @@ const deleteProduct = async (req, res) => {
     const imageUrls =
       product.imageUrls || (product.imageUrl ? [product.imageUrl] : []);
     if (imageUrls.length > 0) {
-      Promise.all(
+      await Promise.all(
         imageUrls.map((url) =>
           deleteCloudinaryImage(extractPublicIdFromUrl(url)),
         ),

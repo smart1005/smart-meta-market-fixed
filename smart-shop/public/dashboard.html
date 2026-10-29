@@ -359,7 +359,7 @@
                 class="btn btn-outline w-full"
                 onclick="showRegister()"
               >
-                Register as Vendor
+                Create An Account
               </button>
             </div>
           </div>
@@ -372,8 +372,8 @@
             >
               Smart<span style="color: var(--text)">Meta</span>Market
             </div>
-            <h2>Become a Vendor</h2>
-            <p>Register to start selling on Smart MetaMarket</p>
+            <h2>Create Your Account</h2>
+            <p>Join Smart MetaMarket || Experience Endless Possibility</p>
 
             <div class="form-group">
               <label>Your Name</label>
@@ -384,15 +384,17 @@
                 placeholder="John Doe"
               />
             </div>
+
             <div class="form-group">
-              <label>Business Name</label>
+              <label>Display Name (shown publicly)</label>
               <input
                 class="input"
                 type="text"
-                id="reg-business"
-                placeholder="Johns Furniture"
+                id="reg-display"
+                placeholder="e.g. John D."
               />
             </div>
+
             <div class="form-group">
               <label>Email</label>
               <input
@@ -412,7 +414,7 @@
               />
             </div>
             <div class="form-group">
-              <label>Password</label>
+              <label>Password (Atleast six characters)</label>
               <input
                 class="input"
                 type="password"
@@ -420,39 +422,23 @@
                 placeholder="••••••••"
               />
             </div>
+
             <div class="form-group">
-              <label>Vendor Type</label>
-              <select class="input" id="reg-type">
-                <option value="product">
-                  Product Vendor — I sell physical items
-                </option>
-                <option value="service">
-                  Service Vendor — I offer skills/services
-                </option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>State</label>
-              <select
+              <label>Comfirm Password</label>
+              <input
                 class="input"
-                id="reg-state"
-                onchange="handleStateChange('reg')"
-              >
-                <option value="">Select State</option>
-              </select>
+                type="password"
+                id="reg-password-confirm"
+                placeholder="••••••••"
+              />
             </div>
-            <div class="form-group">
-              <label>Local Government Area (LGA)</label>
-              <select class="input" id="reg-lga" disabled>
-                <option value="">Select State First</option>
-              </select>
-            </div>
+
             <button
               class="btn btn-primary w-full"
               id="register-btn"
               onclick="handleRegister()"
             >
-              Create Vendor Account
+              Create Account
             </button>
 
             <div class="auth-switch">

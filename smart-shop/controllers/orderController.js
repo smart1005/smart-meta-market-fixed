@@ -61,7 +61,7 @@ const getOrders = async (req, res) => {
     let query = db.collection("orders");
 
     // vendor only sees their own orders
-    if (req.user.role === "vendor") {
+    if (!["admin", "superAdmin"].includes(req.user.role)) {
       query = query.where("vendorId", "==", req.user.id);
     }
 
@@ -94,7 +94,10 @@ const getOrderById = async (req, res) => {
     const order = doc.data();
 
     // vendor can only see their own orders
-    if (req.user.role === "vendor" && order.vendorId !== req.user.id) {
+    if (
+      !["admin", "superAdmin"].includes(req.user.role) &&
+      order.vendorId !== req.user.id
+    ) {
       return res
         .status(403)
         .json({ message: "You can only view your own orders" });
@@ -137,7 +140,10 @@ const updateOrderStatus = async (req, res) => {
     const order = orderDoc.data();
 
     // vendor can only update status of their own orders
-    if (req.user.role === "vendor" && order.vendorId !== req.user.id) {
+    if (
+      !["admin", "superAdmin"].includes(req.user.role) &&
+      order.vendorId !== req.user.id
+    ) {
       return res
         .status(403)
         .json({ message: "You can only update your own orders" });

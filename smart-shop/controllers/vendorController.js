@@ -3,9 +3,10 @@ const logger = require("../utils/logger");
 const cloudinary = require("cloudinary").v2;
 const { buildLocationData } = require("../utils/LocationLookup");
 const {
-  isGenuinelyActive,
-  filterGenuinelyActive,
-} = require("../utils/vendorSubscription");
+  isUserSubscriptionActive,
+  toPublicUser,
+} = require("../utils/subscription");
+const { syncOwnerVisibilityFromAccount } = require("../utils/visibility");
 
 const MAX_PORTFOLIO_IMAGES = 10;
 const MAX_CERTIFICATION_IMAGES = 5;
@@ -177,12 +178,12 @@ const getVendorProfile = async (req, res) => {
     const user = userDoc.data();
     const vendorProfile = vendorProfileDoc.data();
 
-    if (user.role !== "vendor" || !isGenuinelyActive(id, vendorProfile)) {
+    if (!isUserSubscriptionActive(user)) {
       return res.status(404).json({ message: "Vendor not found" });
     }
 
     // don't expose sensitive/internal fields
-    const { password, ...publicUser } = user;
+    const publicUser = toPublicUser(user);
     const { subscriptionExpiry, lastPayment, ...publicVendorProfile } =
       vendorProfile;
 
@@ -200,41 +201,53 @@ const getVendorProfile = async (req, res) => {
 
 const getVendors = async (req, res) => {
   try {
-    // vendorProfiles only ever contains vendor docs, so this single
-    // equality filter replaces the old two-field (role + status) query on
-    // users — and needs no composite index.
-    const profileSnapshot = await db
+    const pageSize = Math.min(parseInt(req.query.limit, 10) || 200, 200);
+    const { cursor } = req.query;
+
+    let query = db
       .collection("vendorProfiles")
-      .where("subscriptionStatus", "==", "active")
-      .get();
+      .where("visibleUntil", ">", new Date())
+      .orderBy("visibleUntil", "desc")
+      .limit(pageSize + 1);
 
-    if (profileSnapshot.empty) {
-      return res.status(200).json({ vendors: [] });
+    if (cursor) {
+      const cursorDoc = await db.collection("vendorProfiles").doc(cursor).get();
+      if (cursorDoc.exists) query = query.startAfter(cursorDoc);
     }
 
-    const genuinelyActiveDocs = filterGenuinelyActive(profileSnapshot.docs);
+    const snap = await query.get();
+    let docs = snap.docs;
+    let nextCursor = null;
 
-    if (genuinelyActiveDocs.length === 0) {
-      return res.status(200).json({ vendors: [] });
+    if (docs.length > pageSize) {
+      docs = docs.slice(0, pageSize);
+      nextCursor = docs[docs.length - 1].id;
     }
 
-    const vendorIds = genuinelyActiveDocs.map((doc) => doc.id);
-    const userRefs = vendorIds.map((id) => db.collection("users").doc(id));
-    const userDocs = await db.getAll(...userRefs);
+    if (docs.length === 0) {
+      return res.status(200).json({ vendors: [], nextCursor: null });
+    }
+
+    const userDocs = await db.getAll(
+      ...docs.map((d) => db.collection("users").doc(d.id)),
+    );
     const usersById = new Map(
       userDocs.filter((d) => d.exists).map((d) => [d.id, d.data()]),
     );
 
-    const vendors = genuinelyActiveDocs
+    const vendors = docs
       .filter((doc) => usersById.has(doc.id))
       .map((doc) => {
-        const { lastPayment, subscriptionExpiry, ...publicProfile } =
+        const { lastPayment, subscriptionExpiry, visibleUntil, ...profile } =
           doc.data();
-        const { password, ...publicUser } = usersById.get(doc.id);
-        return { id: doc.id, ...publicUser, ...publicProfile };
+        return {
+          id: doc.id,
+          ...toPublicUser(usersById.get(doc.id)),
+          ...profile,
+        };
       });
 
-    res.status(200).json({ vendors });
+    res.status(200).json({ vendors, nextCursor });
   } catch (error) {
     logger.error("Error fetching vendors:", error);
     res.status(500).json({
@@ -252,7 +265,7 @@ const updateVendorStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    const vendorDoc = await db.collection("vendorProfiles").doc(id).get();
+    const vendorDoc = await db.collection("users").doc(id).get();
     if (!vendorDoc.exists) {
       return res.status(404).json({ message: "Vendor not found" });
     }
@@ -264,7 +277,8 @@ const updateVendorStatus = async (req, res) => {
       statusUpdate.inactivatedAt = admin.firestore.FieldValue.delete();
     }
 
-    await db.collection("vendorProfiles").doc(id).update(statusUpdate);
+    await db.collection("users").doc(id).update(statusUpdate);
+    await syncOwnerVisibilityFromAccount(id);
 
     res
       .status(200)
@@ -386,14 +400,18 @@ const getAllVendorsForAdmin = async (req, res) => {
     const vendors = profileSnapshot.docs
       .filter((doc) => usersById.has(doc.id))
       .map((doc) => {
-        const profile = doc.data();
-        if (
-          profile.subscriptionStatus === "active" &&
-          !isGenuinelyActive(doc.id, profile)
-        ) {
-          profile.subscriptionStatus = "inactive";
-        }
-        return { id: doc.id, ...usersById.get(doc.id), ...profile };
+        const user = usersById.get(doc.id);
+        const status =
+          user.subscriptionStatus === "active" &&
+          !isUserSubscriptionActive(user)
+            ? "inactive"
+            : user.subscriptionStatus;
+        return {
+          id: doc.id,
+          ...user,
+          ...doc.data(),
+          subscriptionStatus: status,
+        };
       });
 
     res.status(200).json({ vendors });
@@ -445,5 +463,5 @@ module.exports = {
   updateVendorStatus,
   addPortfolioImages,
   removePortfolioImage,
-  getAllVendorsForAdmin
+  getAllVendorsForAdmin,
 };
