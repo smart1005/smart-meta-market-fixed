@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:3000/api"; // Change this to your actual API base URL
+const BASE_URL = window.location.origin; // Change this to your actual API base URL
 
 // ── Token Management ──
 const getToken = () => localStorage.getItem("token");
@@ -82,8 +82,9 @@ const registerVendor = async (data) => {
 };
 
 // ── Products ──
-const getProducts = async () => {
-  const res = await fetch(`${BASE_URL}/products`);
+const getProducts = async (vendorId) => {
+  const query = vendorId ? `?vendorId=${encodeURIComponent(vendorId)}` : "";
+  const res = await fetch(`${BASE_URL}/products${query}`);
   return handleResponse(res);
 };
 
@@ -119,8 +120,9 @@ const deleteProduct = async (id) => {
 };
 
 // ── Services ──
-const getServices = async () => {
-  const res = await fetch(`${BASE_URL}/services`);
+const getServices = async (vendorId) => {
+  const query = vendorId ? `?vendorId=${encodeURIComponent(vendorId)}` : "";
+  const res = await fetch(`${BASE_URL}/services${query}`);
   return handleResponse(res);
 };
 
@@ -215,8 +217,6 @@ const updateVendorProfile = async (formData) => {
   });
   return handleResponse(res);
 };
-
-
 
 const addPortfolioImages = async (formData) => {
   const res = await fetch(`${BASE_URL}/vendors/portfolio`, {

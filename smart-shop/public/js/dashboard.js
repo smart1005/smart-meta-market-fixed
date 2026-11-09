@@ -1,5 +1,6 @@
 let currentUser = null;
 let vendorProfile = null;
+let currentAccount = null; // the person's own account (subscription lives here)
 let allJobTitles = [];
 let myProducts = [];
 let myServices = [];
@@ -7,17 +8,6 @@ let myCollections = [];
 
 const MAX_PORTFOLIO_IMAGES = 10;
 let allStates = [];
-
-// ── Escape HTML to prevent stored XSS from vendor-supplied text ──
-const escapeHtml = (str) => {
-  if (str === null || str === undefined) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-};
 
 const updateAboutWordCount = () => {
   const text = document.getElementById("profile-about").value;
@@ -35,8 +25,8 @@ const checkAuth = async () => {
     return;
   }
 
-  if (user.role !== "vendor") {
-    showToast("This dashboard is for vendors only", "error");
+  if (user.role !== "user") {
+    showToast("Please log in as a user to access the dashboard", "error");
     showAuthSection();
     return;
   }
@@ -68,38 +58,49 @@ const showDashboard = async () => {
   document.getElementById("auth-section").style.display = "none";
   document.getElementById("dashboard-section").style.display = "block";
 
-  // load profile first to get correct vendorType
   const profileRes = await getMyVendorProfile();
-  if (!profileRes.ok || !profileRes.vendor) {
-    showToast(profileRes.message || "Unable to load vendor profile", "error");
+  if (!profileRes.ok || !profileRes.account) {
+    showToast(profileRes.message || "Unable to load your account", "error");
     showAuthSection();
     return;
   }
-  vendorProfile = profileRes.vendor;
 
-  const vendorType = vendorProfile?.vendorType || currentUser.vendorType;
+  currentAccount = profileRes.account;
+  vendorProfile = profileRes.vendor || null; // null = not a vendor yet
+
+  const isVendor = Boolean(vendorProfile);
+  const vendorType = vendorProfile?.vendorType || null;
 
   document.getElementById("dash-business-name").textContent =
-    vendorProfile?.businessName || currentUser.name || "My Store";
-  document.getElementById("dash-vendor-type").textContent =
-    vendorType === "service" ? "🔧 Service Vendor" : "🛍️ Product Vendor";
-  document.getElementById("view-storefront-btn").href =
-    `vendor.html?id=${currentUser.id}`;
+    vendorProfile?.businessName ||
+    currentAccount.displayName ||
+    currentAccount.name ||
+    "My Account";
+  document.getElementById("dash-vendor-type").textContent = !isVendor
+    ? "👤 Member"
+    : vendorType === "service"
+      ? "🔧 Service Vendor"
+      : "🛍️ Product Vendor";
 
-  // hide irrelevant tab, quick-action button, and stat cards
-  if (vendorType === "service") {
-    document.getElementById("dtab-products").style.display = "none";
-    document.getElementById("qa-add-product").style.display = "none";
-    document.getElementById("stat-card-products").style.display = "none";
-    document.getElementById("stat-card-collections").style.display = "none";
-  } else {
-    document.getElementById("dtab-services").style.display = "none";
-    document.getElementById("qa-add-service").style.display = "none";
-    document.getElementById("stat-card-services").style.display = "none";
-  }
+  const storefrontBtn = document.getElementById("view-storefront-btn");
+  storefrontBtn.style.display = isVendor ? "" : "none";
+  storefrontBtn.href = `vendor.html?id=${currentUser.id}`;
 
-  // show inactive banner
-  if (vendorProfile?.subscriptionStatus !== "active") {
+  const show = (id, visible) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? "" : "none";
+  };
+  show("dtab-products", vendorType === "product");
+  show("qa-add-product", vendorType === "product");
+  show("stat-card-products", vendorType === "product");
+  show("stat-card-collections", vendorType === "product");
+  show("dtab-services", vendorType === "service");
+  show("qa-add-service", vendorType === "service");
+  show("stat-card-services", vendorType === "service");
+  show("stat-card-portfolio", isVendor);
+  show("dtab-profile", isVendor);
+
+  if (currentAccount.subscriptionStatus !== "active") {
     showInactiveBanner();
   }
 
@@ -111,11 +112,17 @@ const loadDashboardData = async () => {
   try {
     const [productsRes, servicesRes, collectionsRes, profileRes, jobTitlesRes] =
       await Promise.all([
-        getProducts(),
-        getServices(),
-        getVendorCollections(currentUser.id),
+        vendorProfile
+          ? getProducts(currentUser.id)
+          : { ok: true, products: [] },
+        vendorProfile
+          ? getServices(currentUser.id)
+          : { ok: true, services: [] },
+        vendorProfile
+          ? getVendorCollections(currentUser.id)
+          : { ok: true, collections: [] },
         getMyVendorProfile(),
-        getJobTitles(),
+        vendorProfile ? getJobTitles() : { ok: true, jobTitles: [] },
       ]);
 
     if (
@@ -216,8 +223,8 @@ const handleLogin = async () => {
   try {
     const res = await login(email, password);
     if (res.token) {
-      if (res.user.role !== "vendor") {
-        return showToast("This dashboard is for vendors only", "error");
+      if (res.user.role !== "user") {
+        return showToast("", "error");
       }
       setToken(res.token);
       setUser(res.user);
@@ -971,10 +978,10 @@ const prefillProfile = async () => {
 
 // ── Subscription Status ──
 const updateSubscriptionStatus = () => {
-  if (!vendorProfile) return;
+  if (!currentAccount) return;
 
-  const status = vendorProfile.subscriptionStatus;
-  const expiry = vendorProfile.subscriptionExpiry;
+  const status = currentAccount.subscriptionStatus;
+  const expiry = currentAccount.subscriptionExpiry;
 
   const statusText = document.getElementById("sub-status-text");
   const expiryText = document.getElementById("sub-expiry-text");

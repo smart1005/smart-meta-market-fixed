@@ -4,7 +4,12 @@ const { isUserSubscriptionActive } = require("./subscription");
 // Everything an owner publishes carries `visibleUntil` (the owner's
 // subscription expiry). Add "jobs" and "vendorCollections" here when they
 // are built, and the same sync will cover them.
-const LISTING_COLLECTIONS = ["products", "services"];
+const LISTING_COLLECTIONS = [
+  { name: "products", field: "vendorId" },
+  { name: "services", field: "vendorId" },
+  { name: "jobs", field: "ownerId" },
+  { name: "applications", field: "applicantId" },
+];
 const BATCH_SIZE = 400;
 
 // The value to stamp on listings: expiry date if the account is active,
@@ -20,8 +25,8 @@ const syncOwnerVisibility = async (uid, visibleUntil) => {
   const profileSnap = await profileRef.get();
   if (profileSnap.exists) refs.push(profileRef);
 
-  for (const name of LISTING_COLLECTIONS) {
-    const snap = await db.collection(name).where("vendorId", "==", uid).get();
+  for (const { name, field } of LISTING_COLLECTIONS) {
+    const snap = await db.collection(name).where(field, "==", uid).get();
     snap.docs.forEach((d) => refs.push(d.ref));
   }
 

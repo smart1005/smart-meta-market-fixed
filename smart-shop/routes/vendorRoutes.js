@@ -1,9 +1,15 @@
 const express = require("express");
 const router = express.Router();
 const asyncHandler = require("../middleware/asyncHandler");
-const { protect, restrictTo } = require("../middleware/authMiddleware");
+const {
+  protect,
+  restrictTo,
+  checkSubscription,
+} = require("../middleware/authMiddleware");
 const { uploadPortfolio, uploadVendorProfile } = require("../config/cloudinary");
 const {
+  becomeVendor,
+  removeVendorProfile,
   updateVendorProfile,
   updateVendorLocation,
   getVendorProfile,
@@ -12,14 +18,29 @@ const {
   updateVendorStatus,
   removePortfolioImage,
   getAllVendorsForAdmin,
-  getMyVendorProfile
+  getMyVendorProfile,
 } = require("../controllers/vendorController");
 
 router.get(
   "/me",
   protect,
-  restrictTo("vendor"),
+  restrictTo("user"),
   asyncHandler(getMyVendorProfile),
+);
+
+router.post(
+  "/become",
+  protect,
+  restrictTo("user"),
+  checkSubscription,
+  asyncHandler(becomeVendor),
+);
+
+router.delete(
+  "/me",
+  protect,
+  restrictTo("vendor"),
+  asyncHandler(removeVendorProfile),
 );
 
 router.get("/", asyncHandler(getVendors));

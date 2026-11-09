@@ -1,7 +1,7 @@
 /**
  * Tests for applySubscriptionPayment — the Firestore-transaction-based
  * idempotency guard that prevents a payment reference from being replayed
- * to double- or infinitely-extend a vendor's subscription.
+ * to double- or infinitely-extend a user's (account-level) subscription.
  *
  * Firestore is mocked with a minimal in-memory fake rather than a real
  * emulator, so these run fast with no setup.
@@ -12,7 +12,7 @@ let store;
 const resetStore = (initialVendor) => {
   store = {
     processedPayments: new Map(),
-    vendorProfiles: new Map([["vendor-1", { ...initialVendor }]]),
+    users: new Map([["vendor-1", { ...initialVendor }]]),
   };
 };
 
@@ -65,6 +65,12 @@ jest.mock("../config/firebase", () => ({
   },
 }));
 
+jest.mock("../utils/visibility", () => ({
+  syncOwnerVisibilityFromAccount: jest.fn().mockResolvedValue(0),
+}));
+jest.mock("../utils/logger", () => ({ error: jest.fn(), info: jest.fn(), warn: jest.fn() }));
+
+const { syncOwnerVisibilityFromAccount } = require("../utils/visibility");
 const {
   applySubscriptionPayment,
 } = require("../controllers/paymentController");
@@ -77,6 +83,7 @@ describe("applySubscriptionPayment — idempotency", () => {
 
   beforeEach(() => {
     resetStore(baseVendor);
+    syncOwnerVisibilityFromAccount.mockClear();
   });
 
   test("activates a vendor on first payment", async () => {
@@ -91,7 +98,7 @@ describe("applySubscriptionPayment — idempotency", () => {
     expect(result.alreadyProcessed).toBe(false);
     expect(result.newExpiry).toBeInstanceOf(Date);
 
-    const vendor = store.vendorProfiles.get("vendor-1");
+    const vendor = store.users.get("vendor-1");
     expect(vendor.subscriptionStatus).toBe("active");
     expect(vendor.subscriptionExpiry.toDate()).toEqual(result.newExpiry);
 
@@ -109,7 +116,7 @@ describe("applySubscriptionPayment — idempotency", () => {
       txRef: "tx-ref-002",
     });
 
-    const vendorAfterFirst = { ...store.vendorProfiles.get("vendor-1") };
+    const vendorAfterFirst = { ...store.users.get("vendor-1") };
 
     const second = await applySubscriptionPayment({
       vendorId: "vendor-1",
@@ -123,7 +130,7 @@ describe("applySubscriptionPayment — idempotency", () => {
     expect(second.alreadyProcessed).toBe(true);
     expect(second.newExpiry).toBeNull();
 
-    const vendorAfterSecond = store.vendorProfiles.get("vendor-1");
+    const vendorAfterSecond = store.users.get("vendor-1");
     expect(vendorAfterSecond.subscriptionExpiry.toDate()).toEqual(
       vendorAfterFirst.subscriptionExpiry.toDate(),
     );
@@ -208,5 +215,36 @@ describe("applySubscriptionPayment — idempotency", () => {
     ).rejects.toMatchObject({ code: "VENDOR_NOT_FOUND" });
 
     expect(store.processedPayments.has("tx-ref-006")).toBe(false);
+  });
+
+  test("after a payment, the owner's listings are re-synced (visible again)", async () => {
+    await applySubscriptionPayment({
+      vendorId: "vendor-1",
+      plan: "monthly",
+      days: 30,
+      amount: 1000,
+      txRef: "tx-sync-1",
+    });
+    expect(syncOwnerVisibilityFromAccount).toHaveBeenCalledWith("vendor-1");
+  });
+
+  test("a replayed webhook still re-syncs, so a failed sync is repaired on retry", async () => {
+    const args = { vendorId: "vendor-1", plan: "monthly", days: 30, amount: 1000, txRef: "tx-sync-2" };
+    await applySubscriptionPayment(args);
+    await applySubscriptionPayment(args);
+    expect(syncOwnerVisibilityFromAccount).toHaveBeenCalledTimes(2);
+  });
+
+  test("a failing visibility sync does not fail the payment", async () => {
+    syncOwnerVisibilityFromAccount.mockRejectedValueOnce(new Error("boom"));
+    const result = await applySubscriptionPayment({
+      vendorId: "vendor-1",
+      plan: "monthly",
+      days: 30,
+      amount: 1000,
+      txRef: "tx-sync-3",
+    });
+    expect(result.alreadyProcessed).toBe(false);
+    expect(store.users.get("vendor-1").subscriptionStatus).toBe("active");
   });
 });

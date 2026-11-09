@@ -51,6 +51,7 @@ const protect = async (req, res, next) => {
       email: decodedToken.email,
       role: userData.role,
       name: userData.name,
+      displayName: userData.displayName,
       subscriptionStatus: userData.subscriptionStatus,
       subscriptionExpiry: userData.subscriptionExpiry,
       // "product" | "service" | null (null = not a vendor)

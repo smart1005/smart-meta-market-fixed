@@ -6,7 +6,11 @@ const {
   isUserSubscriptionActive,
   toPublicUser,
 } = require("../utils/subscription");
-const { syncOwnerVisibilityFromAccount } = require("../utils/visibility");
+const {
+  syncOwnerVisibilityFromAccount,
+  visibleUntilFor,
+} = require("../utils/visibility");
+const { clearVendorTypeCache } = require("../middleware/authMiddleware");
 
 const MAX_PORTFOLIO_IMAGES = 10;
 const MAX_CERTIFICATION_IMAGES = 5;
@@ -436,15 +440,18 @@ const getMyVendorProfile = async (req, res) => {
       db.collection("vendorProfiles").doc(id).get(),
     ]);
 
-    if (!userDoc.exists || !vendorProfileDoc.exists) {
-      return res.status(404).json({ message: "Vendor profile not found" });
+    if (!userDoc.exists) {
+      return res.status(404).json({ message: "Account not found" });
     }
 
-    const { password, ...publicUser } = userDoc.data();
-    const vendorProfile = vendorProfileDoc.data();
+    const { password, ...account } = userDoc.data();
+    const profile = vendorProfileDoc.exists ? vendorProfileDoc.data() : null;
 
     res.status(200).json({
-      vendor: { id, ...publicUser, ...vendorProfile },
+      // the person's own account (includes their private subscription info)
+      account: { id, ...account },
+      // null when they haven't become a vendor yet
+      vendor: profile ? { id, ...account, ...profile } : null,
     });
   } catch (error) {
     logger.error({ err: error }, "Error fetching own vendor profile");
@@ -454,7 +461,166 @@ const getMyVendorProfile = async (req, res) => {
   }
 };
 
+// ── Become a vendor (a user picks ONE type: product or service) ──
+const becomeVendor = async (req, res) => {
+  try {
+    const id = req.user.id;
+    const { vendorType, state, lga } = req.body;
+    const businessName = String(req.body.businessName || "").trim();
+
+    if (!["product", "service"].includes(vendorType)) {
+      return res
+        .status(400)
+        .json({ message: "Choose a vendor type: product or service." });
+    }
+
+    if (businessName.length < 2 || businessName.length > 80) {
+      return res
+        .status(400)
+        .json({ message: "Business name must be 2 to 80 characters." });
+    }
+
+    if (!state || !lga) {
+      return res.status(400).json({ message: "State and LGA are required." });
+    }
+
+    const location = buildLocationData(state, lga);
+    if (!location) {
+      return res.status(400).json({
+        message:
+          "Invalid state/LGA combination. Please select from the provided list.",
+      });
+    }
+
+    // create() fails if a profile already exists, so two taps can't make two
+    try {
+      await db
+        .collection("vendorProfiles")
+        .doc(id)
+        .create({
+          businessName,
+          vendorType,
+          location,
+          visibleUntil: visibleUntilFor(req.user),
+          createdAt: admin.firestore.Timestamp.fromDate(new Date()),
+        });
+    } catch (createError) {
+      if (createError.code === 6) {
+        return res.status(409).json({ message: "You are already a vendor." });
+      }
+      throw createError;
+    }
+
+    clearVendorTypeCache(id);
+
+    res.status(201).json({
+      message: `You are now a ${vendorType} vendor.`,
+      vendor: { id, businessName, vendorType, location },
+    });
+  } catch (error) {
+    logger.error({ err: error }, "Error creating vendor profile");
+    res.status(500).json({
+      message: "Unable to create your vendor profile right now. Please try again.",
+    });
+  }
+};
+
+// ── Remove vendor profile (deletes their listings too, so they can re-enter) ──
+const removeVendorProfile = async (req, res) => {
+  try {
+    const id = req.user.id;
+
+    if (req.body?.confirm !== true) {
+      return res.status(400).json({
+        message:
+          "Please confirm. Removing your vendor profile also deletes your products, services and collections.",
+      });
+    }
+
+    const profileRef = db.collection("vendorProfiles").doc(id);
+    const profileSnap = await profileRef.get();
+
+    if (!profileSnap.exists) {
+      return res.status(404).json({ message: "You are not a vendor." });
+    }
+
+    const refs = [];
+    for (const name of [
+      "products",
+      "services",
+      "vendorCollections",
+      "reviews",
+    ]) {
+      const snap = await db.collection(name).where("vendorId", "==", id).get();
+      snap.docs.forEach((d) => refs.push(d.ref));
+    }
+    // profile goes last: if anything fails midway, the user can simply retry
+    refs.push(profileRef);
+
+    for (let i = 0; i < refs.length; i += 400) {
+      const batch = db.batch();
+      refs.slice(i, i + 400).forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
+
+    clearVendorTypeCache(id);
+
+    res.status(200).json({
+      message: "Your vendor profile has been removed.",
+      deleted: refs.length,
+    });
+  } catch (error) {
+    logger.error({ err: error }, "Error removing vendor profile");
+    res.status(500).json({
+      message: "Unable to remove your vendor profile right now. Please try again.",
+    });
+  }
+};
+
+// ── Admin grants or removes the "verified vendor" badge ──
+const setVendorVerified = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { verified } = req.body || {};
+
+    if (typeof verified !== "boolean") {
+      return res.status(400).json({ message: "verified must be true or false." });
+    }
+
+    const ref = db.collection("vendorProfiles").doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      return res.status(404).json({ message: "Vendor not found." });
+    }
+
+    const at = admin.firestore.Timestamp.fromDate(new Date());
+    await ref.update(
+      verified
+        ? { verified: true, verifiedAt: at }
+        : { verified: false, verifiedAt: admin.firestore.FieldValue.delete() },
+    );
+
+    // who did it stays private (not on the public profile)
+    await db.collection("adminActions").add({
+      type: "vendor_verify",
+      vendorId: id,
+      verified,
+      adminId: req.user.id,
+      at,
+    });
+
+    res.status(200).json({
+      message: verified ? "Vendor verified." : "Verification removed.",
+    });
+  } catch (error) {
+    logger.error({ err: error }, "Error updating vendor verification");
+    res.status(500).json({ message: "Unable to update verification right now." });
+  }
+};
+
 module.exports = {
+  becomeVendor,
+  removeVendorProfile,
   updateVendorProfile,
   getMyVendorProfile,
   updateVendorLocation,

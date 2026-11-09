@@ -27,7 +27,7 @@ let store;
 const resetStore = () => {
   store = {
     processedPayments: new Map(),
-    vendorProfiles: new Map([
+    users: new Map([
       [
         "vendor-1",
         { subscriptionStatus: "inactive", subscriptionExpiry: null },
@@ -64,6 +64,11 @@ jest.mock("../config/firebase", () => ({
       FieldValue: { delete: () => ({ __isDeleteField: true }) },
     },
   },
+}));
+
+// the visibility sync is covered in visibility.test.js; keep this file focused on signatures
+jest.mock("../utils/visibility", () => ({
+  syncOwnerVisibilityFromAccount: jest.fn().mockResolvedValue(0),
 }));
 
 const { flutterwaveWebhook } = require("../controllers/paymentController");
@@ -169,7 +174,7 @@ describe("flutterwaveWebhook — signature verification", () => {
     expect(res.sendStatus).toHaveBeenCalledWith(200);
     expect(axios.get).toHaveBeenCalledTimes(1);
 
-    const vendor = store.vendorProfiles.get("vendor-1");
+    const vendor = store.users.get("vendor-1");
     expect(vendor.subscriptionStatus).toBe("active");
     expect(
       store.processedPayments.get(samplePayload.data.tx_ref),
@@ -197,7 +202,7 @@ describe("flutterwaveWebhook — signature verification", () => {
     await flutterwaveWebhook(req, res);
 
     expect(res.sendStatus).toHaveBeenCalledWith(200); // still acks receipt
-    const vendor = store.vendorProfiles.get("vendor-1");
+    const vendor = store.users.get("vendor-1");
     expect(vendor.subscriptionStatus).toBe("inactive"); // but NOT activated
     expect(store.processedPayments.size).toBe(0);
   });

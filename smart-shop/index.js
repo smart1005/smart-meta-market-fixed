@@ -56,6 +56,13 @@ const serviceRoutes = require("./routes/serviceRoutes"); // Import service route
 const collectionRoutes = require("./routes/collectionRoutes");
 const vendorRoutes = require("./routes/vendorRoutes");
 const locationRoutes = require("./routes/locationRoutes");
+const jobRoutes = require("./routes/jobRoutes");
+const applicationRoutes = require("./routes/applicationRoutes");
+const vendorReviewRoutes = require("./routes/vendorReviewRoutes");
+const reviewRoutes = require("./routes/reviewRoutes");
+const reportRoutes = require("./routes/reportRoutes");
+const asyncHandler = require("./middleware/asyncHandler");
+const { openContact } = require("./controllers/jobController");
 
 app.use("/products", productRoutes); // Use product routes for handling requests to /products
 app.use("/orders", orderRoutes); // Use order routes for handling requests to /orders
@@ -65,6 +72,13 @@ app.use("/services", serviceRoutes); // Use service routes for handling requests
 app.use("/collections", collectionRoutes); // Use collection routes for handling requests to /collections
 app.use("/vendors", vendorRoutes); // Use vendor routes for handling requests to /vendors
 app.use("/locations", locationRoutes); // Use location routes for handling requests to /locations
+
+app.use("/vendors/:id/reviews", vendorReviewRoutes); // reviews of a vendor
+app.use("/reviews", reviewRoutes); // edit/delete/reply to a review
+app.use("/reports", reportRoutes); // report content + admin moderation queue
+app.use("/jobs", jobRoutes); // paid jobs board
+app.use("/applications", applicationRoutes); // job applications
+app.get("/c/:token", asyncHandler(openContact)); // one-time WhatsApp contact link
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "smart-shop" });
